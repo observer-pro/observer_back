@@ -1,0 +1,28 @@
+[tool.black]
+target-version = ['py310']
+line-length = 120
+skip-string-normalization = 1
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.pytest_cache
+)/
+'''
+
+[tool.isort]
+py_version=310
+line_length = 120
+multi_line_output = 3
+include_trailing_comma = true
+combine_as_imports = true
+combine_star = true
+force_grid_wrap = 0
+skip = ['.gitignore', '.dockerignore']
+skip_glob = [
+    '**/migrations/**',
+    '.git',
+    '.venv',
+    '.idea'
+]
