@@ -1,38 +1,58 @@
+import logging
+
 import eventlet
 import socketio
 
-from models import User, Room, Message
+from models import Message, Room, User
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+file_handler = logging.FileHandler('log.log')
+file_handler.setLevel(logging.ERROR)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 sio = socketio.Server()
 app = socketio.WSGIApp(sio)
 
 
-@sio.event()
-def connect(sid, data):
-    print(f'{sid} connected')
+@sio.event
+def connect(sid, environ):
+    # log
+    sio.emit('log', data={'message': f'User {sid} connected'})
+
+
+@sio.event
+def disconnect(sid):
+    # log
+    sio.emit('log', data={'message': f'User {sid} disconnected'})
 
 
 @sio.on('room/create')
 def room_create(sid, data):
-    hostname = data.get('name', None)  # no 'name' param in Technical Specification
+    hostname = data.get('name', None)
     user = User(sid, role='host', name=hostname)
     room = Room(host=user)
     room.add_user(user)
+    user.room = room.id
     sio.emit('room/update', data=room.get_room_data(), to=sid)
+    # log
+    sio.emit('log', data={'message': f'User {sid} created Room (id: {room.id})'})
 
 
 @sio.on('room/join')
 def room_join(sid, data):
     room_id = data.get('room_id', None)
-    username = data.get('name', None)  # no 'name' param in Technical Specification
+    username = data.get('name', None)
 
     if not room_id:
-        sio.emit('room/join', 'Error. No room id present.', to=sid)
+        handle_bad_request(f'No room id present in data')
         return
 
     room = Room.get_room_by_id(room_id)
     if not room:
-        sio.emit('room/join', 'Error. There is no room with such id.', to=sid)
+        handle_bad_request(f'No room with id: {room_id}')
         return
 
     user = User(sid, role='client', name=username, room_id=room_id)
@@ -40,8 +60,10 @@ def room_join(sid, data):
 
     # Message to User
     sio.emit('room/join', data={'user_id': user.id, 'room_id': room_id}, to=sid)
-    # Message to Host
+    # Update data for Host
     sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
+    # log
+    sio.emit('log', data={'message': f'User {sid} has joined the Room with id: {room.id}'})
 
 
 @sio.on('message/to_client')
@@ -54,15 +76,13 @@ def message_to_mentor(sid, data):
     send_message(sid, data, 'to_mentor')
 
 
-def send_message(
-        sender_sid: str, data: dict, to: str
-) -> None:
+def send_message(sender_sid: str, data: dict, to: str) -> None:
     """
     Sends a message from the sender to the specified user in a room or host.
 
     Parameters:
         sender_sid (str): The session ID of the sender.
-        data (dict): ...
+        data (dict): 'user_id', 'room_id', 'content'
         to (str): 'to_client' or 'to_mentor'
 
     Returns:
@@ -73,7 +93,9 @@ def send_message(
     receiver_id = data.get('user_id', None)
 
     if not all((receiver_id, room_id, content)):
-        """ Missing some data """
+        # bad request "Missing some data"
+        sio.emit('error', data={'message': '400 BAD REQUEST'})
+        logger.error(f'Bad request occurred: Missing some data!')
         return
 
     room = Room.get_room_by_id(room_id)
@@ -81,11 +103,11 @@ def send_message(
     sender = User.get_user_by_sid(sender_sid)
 
     if not room:
-        """ No such Room """
+        handle_bad_request(f'No room with id: {room_id}')
         return
 
     if not receiver:
-        """ No such user in the Room """
+        handle_bad_request(f'No such user id {receiver_id} in the room')
         return
 
     message = Message(sender_id=sender.id, receiver_id=receiver_id, content=content)
@@ -99,8 +121,10 @@ def send_message(
             'content': content,
             'datetime': message.created_at,
         },
-        to=receiver.sid
+        to=receiver.sid,
     )
+    # log
+    sio.emit('log', data={'message': f'User {sender.id} has sent message to user: {receiver_id}'})
 
 
 @sio.on('sharing/start')
@@ -113,9 +137,7 @@ def sharing_end(sid, data):
     send_sharing_status(data, command='end')
 
 
-def send_sharing_status(
-        data: dict, command: str
-) -> None:
+def send_sharing_status(data: dict, command: str) -> None:
     room_id = data.get('room_id', None)
     receiver_id = data.get('user_id', None)
 
@@ -123,19 +145,20 @@ def send_sharing_status(
     receiver = room.get_user_by_id(receiver_id)
 
     if not room:
-        """ No such Room """
+        handle_bad_request(f'No room with id: {room_id}')
         return
 
     if not receiver:
-        """ No such user in the Room """
+        handle_bad_request(f'No such user id {receiver_id} in the room')
+        return
 
     sio.emit(f'sharing/{command}', data={}, to=receiver.sid)
+    # log
+    sio.emit('log', data={'message': f'Host send "{command}" to user: {receiver_id}'})
 
 
 @sio.on('sharing/code_send')
 def sharing_code_from_user(sid, data):
-    # TODO: нужна ли тут какая-то валидация или всё на фронте и юзер нажимает "Шарить код",
-    # TODO: автоматически отправляя хосту по id. Обработка какая-то на бэке нужна?
     room_id = data.get('room_id', None)
     receiver_id = data.get('user_id', None)
 
@@ -143,13 +166,20 @@ def sharing_code_from_user(sid, data):
     host = room.get_user_by_id(receiver_id)
 
     if not room:
-        """ No such Room """
+        """No such Room"""
         return
 
     if not host:
-        """ Wrong host """
+        """Wrong host"""
 
     sio.emit(f'sharing/code_send', data=data, to=host.sid)
+    # log
+    sio.emit('log', data={'message': f'"sharing/code_send" command has been executed'})
+
+
+def handle_bad_request(message: str):
+    sio.emit('error', data={'message': '400 BAD REQUEST'})
+    logger.error(f'Bad request occurred: {message}')
 
 
 if __name__ == '__main__':

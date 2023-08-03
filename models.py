@@ -20,10 +20,24 @@ class Room:
     def add_user(self, user: 'User'):
         self.users.append(user)
 
+    def serialize_users(self, users: list['User']) -> list[dict[str, ...]]:
+        serialized_users = []
+        for user in users:
+            serialized_user = {
+                'id': user.id,
+                'sid': user.sid,
+                'room': user.room,
+                'name': user.name,
+                'role': user.role,
+                'messages': [message.serialize() for message in user.messages],
+            }
+            serialized_users.append(serialized_user)
+        return serialized_users
+
     def get_room_data(self) -> dict:
         return {
             'id': self.id,
-            'users': [user.id for user in self.users],
+            'users': self.serialize_users(self.users),
             'host': self.host.id,
             'codecaster': None,
         }
@@ -62,14 +76,22 @@ class User:
 
 
 class Message:
-
     def __init__(self, sender_id, receiver_id, content):
         self.sender: int = sender_id
         self.receiver: int = receiver_id
         self.content: str = content
         self.status: str | None = None
         current_time = datetime.datetime.now().time()
-        self.created_at: str = current_time.strftime("%H:%M:%S")
+        self.created_at: str = current_time.strftime('%H:%M:%S')
 
     def __repr__(self):
         return f'{self.content}'
+
+    def serialize(self) -> dict[str, ...]:
+        return {
+            'sender': self.sender,
+            'receiver': self.receiver,
+            'content': self.content,
+            'status': self.status,
+            'created_at': self.created_at,
+        }
