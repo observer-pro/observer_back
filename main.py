@@ -17,14 +17,28 @@ sio = socketio.Server()
 app = socketio.WSGIApp(sio)
 
 
+def create_test_room(sid):
+    """Create room for tests"""
+    room = Room.get_room_by_id(1000)
+    if not room:
+        user = User(sid, role='host', name='Mama Zmeya')
+        test_room = Room(host=user)
+        test_room.add_user(user)
+        # log
+        sio.emit('log', data={'message': f'Test room created, id: {test_room.id}'})
+
+
 @sio.event
-def connect(sid, environ):
+def connect(sid, data):
+    create_test_room(sid)
+    sio.emit('user/connect', data='')
     # log
     sio.emit('log', data={'message': f'User {sid} connected'})
 
 
 @sio.event
 def disconnect(sid):
+    sio.emit('user/disconnect', data='')
     # log
     sio.emit('log', data={'message': f'User {sid} disconnected'})
 
@@ -38,13 +52,20 @@ def room_create(sid, data):
     user.room = room.id
     sio.emit('room/update', data=room.get_room_data(), to=sid)
     # log
-    sio.emit('log', data={'message': f'User {sid} created Room (id: {room.id})'})
+    sio.emit('log', data={'message': f'User {sid} created Room id: {room.id}'})
 
 
 @sio.on('room/join')
 def room_join(sid, data):
     room_id = data.get('room_id', None)
     username = data.get('name', None)
+
+    user = User.get_user_by_sid(sid)
+    if user and user.room is not None:  # TODO: need I to check user in the same room already or not?
+        handle_bad_request(f'User already in room (id: {user.room})')
+        # log
+        sio.emit('log', data={'message': f'User already in room (id: {user.room})'})
+        return
 
     if not room_id:
         handle_bad_request(f'No room id present in data')
@@ -78,12 +99,14 @@ def message_to_mentor(sid, data):
 
 def send_message(sender_sid: str, data: dict, to: str) -> None:
     """
-    Sends a message from the sender to the specified user in a room or host.
+    Sends a message from the sender to the specified user in a room or from user to host.
 
     Parameters:
         sender_sid (str): The session ID of the sender.
         data (dict): 'user_id', 'room_id', 'content'
-        to (str): 'to_client' or 'to_mentor'
+        to (str):
+            'to_client' - from host to user
+            'to_mentor' - from user to host
 
     Returns:
         None. The function emits the message to the recipient using Socket.IO.
@@ -111,7 +134,11 @@ def send_message(sender_sid: str, data: dict, to: str) -> None:
         return
 
     message = Message(sender_id=sender.id, receiver_id=receiver_id, content=content)
-    receiver.messages.append(message)
+    # check the way of sending to save messages to user, not host
+    if to == 'to_client':
+        receiver.messages.append(message)
+    else:
+        sender.messages.append(message)
 
     sio.emit(
         f'message/{to}',
