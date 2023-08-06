@@ -16,7 +16,7 @@ def test_room_create_and_join(client, host):
             assert field in data
         room_data.update(data)
 
-    host.emit('room/create', {})
+    host.emit('room/create', data={'name': 'Misha'})
     host.sleep(0.1)
 
     assert 'id' in room_data
@@ -27,4 +27,4 @@ def test_room_create_and_join(client, host):
         assert 'user_id' in data
         assert data.get('room_id') == actual_room_id
 
-    client.emit('room/join', {"room_id": actual_room_id, "name": "Ivan"})
+    client.emit('room/join', data={'room_id': actual_room_id, 'name': 'Ivan'})
