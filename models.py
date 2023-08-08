@@ -52,6 +52,11 @@ class Room:
     def get_room_by_id(cls, room_id: int) -> Optional['Room']:
         return cls.rooms.get(room_id)
 
+    @classmethod
+    def delete_room(cls, room_id: int) -> None:
+        if room_id in cls.rooms:
+            del cls.rooms[room_id]
+
 
 class User:
     id = 100

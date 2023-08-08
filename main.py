@@ -13,7 +13,8 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-sio = socketio.Server(cors_allowed_origins='*')
+sio = socketio.Server(async_mode='eventlet', cors_allowed_origins='*')
+eventlet.monkey_patch()
 app = socketio.WSGIApp(sio)
 
 
@@ -31,14 +32,12 @@ def create_test_room(sid):
 @sio.event
 def connect(sid, data):
     create_test_room(sid)
-    sio.emit('user/connect', data='')
     # log
     sio.emit('log', data={'message': f'User {sid} connected'})
 
 
 @sio.event
 def disconnect(sid):
-    sio.emit('user/disconnect', data='')
     # log
     sio.emit('log', data={'message': f'User {sid} disconnected'})
 
@@ -61,7 +60,7 @@ def room_join(sid, data):
     username = data.get('name', None)
 
     user = User.get_user_by_sid(sid)
-    if user and user.room is not None:  # TODO: need I to check user in the same room already or not?
+    if user and user.room is not None:
         handle_bad_request(f'User already in room (id: {user.room})')
         # log
         sio.emit('log', data={'message': f'User already in room (id: {user.room})'})
@@ -87,6 +86,21 @@ def room_join(sid, data):
     sio.emit('log', data={'message': f'User {sid} has joined the Room with id: {room.id}'})
 
 
+@sio.on('room/data')
+def room_data(sid, data):
+    room_id = data.get('room_id', None)
+    if not room_id:
+        handle_bad_request(f'No room_id present in data')
+        return
+
+    room = Room.get_room_by_id(room_id)
+    if not room:
+        handle_bad_request(f'No room with id: {room_id}')
+        return
+
+    sio.emit('room/update', data=room.get_room_data(), to=sid)
+
+
 @sio.on('message/to_client')
 def message_to_client(sid, data):
     send_message(sid, data, 'to_client')
@@ -99,7 +113,7 @@ def message_to_mentor(sid, data):
 
 def send_message(sender_sid: str, data: dict, to: str) -> None:
     """
-    Sends a message from the sender to the specified user in a room or from user to host.
+    Sends a message from the host to the specified user in a room or from user to host.
 
     Parameters:
         sender_sid (str): The session ID of the sender.
@@ -193,19 +207,82 @@ def sharing_code_from_user(sid, data):
     host = room.get_user_by_id(receiver_id)
 
     if not room:
-        """No such Room"""
+        handle_bad_request(f'No room with id: {room_id}')
         return
 
     if not host:
-        """Wrong host"""
+        handle_bad_request(f'No host with id: {receiver_id}')
+        return
 
     sio.emit(f'sharing/code_send', data=data, to=host.sid)
     # log
-    sio.emit('log', data={'message': f'"sharing/code_send" command has been executed'})
+    sio.emit('log', data={'message': f'"sharing/code_send" started'})
+
+
+@sio.on('room/rejoin')
+def room_rejoin(sid, data):
+    rejoin(sid, data, commmand='rejoin')
+
+
+@sio.on('room/rehost')
+def room_rehost(sid, data):
+    rejoin(sid, data, commmand='rehost')
+
+
+def rejoin(sid: str, data: dict, commmand: str) -> None:
+    room_id = data.get('room_id', None)
+    user_id = data.get('user_id', None)
+    old_sid = data.get('old_sid', None)
+
+    room = Room.get_room_by_id(room_id)
+    if not room:
+        handle_bad_request(f'No room with id: {room_id}')
+        return
+
+    user = room.get_user_by_id(user_id)
+    if not user:
+        handle_bad_request(f'No such user with id {user_id}!')
+        return
+
+    if not user.sid == old_sid:
+        handle_bad_request(f'Wrong old_sid for user id: {user_id}!')
+        return
+
+    user.sid = sid  # Save new socket id to user
+
+    if commmand == 'rejoin':  # Student rejoin
+        sio.emit('room/join', data={'user_id': user.id, 'room_id': room_id}, to=sid)
+        # log
+        sio.emit('log', data={'message': f'Student {user.name} with id {user_id} reconnected!'})
+    else:  # Teacher rejoin
+        sio.emit('room/update', data=room.get_room_data(), to=sid)
+        for user in room.users:
+            if user != room.host:
+                sio.emit('message', {'message': 'The teacher is back!'}, to=user.sid)
+        # log
+        sio.emit('log', data={'message': f'Host {user.name} with id {user_id} reconnected!'})
+
+
+@sio.on('room/close')
+def room_close(sid, data):
+    room_id = data.get('room_id', None)
+
+    room = Room.get_room_by_id(room_id)
+    if not room:
+        handle_bad_request(f'No room with id: {room_id}')
+        return
+
+    for user in room.users:
+        if user != room.host:
+            user.room = None
+            sio.emit('room/closed', {'message': 'Room closed!'}, to=user.sid)
+
+    eventlet.sleep(2)
+    Room.delete_room(room_id)
 
 
 def handle_bad_request(message: str):
-    sio.emit('error', data={'message': '400 BAD REQUEST'})
+    sio.emit('error', data={'message': f'400 BAD REQUEST. {message}'})
     logger.error(f'Bad request occurred: {message}')
 
 
