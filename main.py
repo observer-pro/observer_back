@@ -214,7 +214,7 @@ def sharing_code_from_user(sid, data):
 
     sio.emit(f'sharing/code_send', data=data, to=host.sid)
     # log
-    emit_log('Sharing started')
+    emit_log(f'Sharing started, data: {data}')
 
 
 @sio.on('room/rejoin')
