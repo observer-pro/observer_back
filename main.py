@@ -123,30 +123,32 @@ def send_message(sender_sid: str, data: dict, to: str) -> None:
     Returns:
         None. The function emits the message to the recipient using Socket.IO.
     """
+    # TODO: если to_mentor то не нужен user_id, берём host_id из room
     room_id = data.get('room_id', None)
     content = data.get('content', None)
-    receiver_id = data.get('user_id', None)
-
-    if not all((receiver_id, room_id, content)):
-        handle_bad_request('Missing some data')
-        return
-
     room = Room.get_room_by_id(room_id)
 
     if not room:
         handle_bad_request(f'No room with id: {room_id}')
         return
 
-    receiver = room.get_user_by_id(receiver_id)
+    if to == 'to_client':
+        receiver_id = data.get('user_id', None)
+        receiver = room.get_user_by_id(receiver_id)
 
-    if not receiver:
-        handle_bad_request(f'No such user id {receiver_id} in the room')
-        return
+        if not receiver:
+            handle_bad_request(f'No such user id {receiver_id} in the room')
+            return
+    else:
+        receiver_id = room.host.id
+        receiver = room.host
+
+    if not content:
+        content = ''
 
     sender = User.get_user_by_sid(sender_sid)
     message = Message(sender_id=sender.id, receiver_id=receiver_id, content=content)
 
-    # check the way of sending to save messages to user, not host
     if to == 'to_client':
         receiver.messages.append(message)
     else:
@@ -179,7 +181,6 @@ def sharing_end(sid, data):
 def send_sharing_status(data: dict, command: str) -> None:
     room_id = data.get('room_id', None)
     receiver_id = data.get('user_id', None)
-
     room = Room.get_room_by_id(room_id)
 
     if not room:
@@ -194,29 +195,23 @@ def send_sharing_status(data: dict, command: str) -> None:
 
     sio.emit(f'sharing/{command}', data={}, to=receiver.sid)
     # log
-    emit_log(f'Host send "{command}" to user: {receiver_id}')
+    emit_log(f"Host send '{command}' to user: {receiver_id}")
 
 
 @sio.on('sharing/code_send')
 def sharing_code_from_user(sid, data):
     room_id = data.get('room_id', None)
-    receiver_id = data.get('user_id', None)
-
     room = Room.get_room_by_id(room_id)
 
     if not room:
         handle_bad_request(f'No room with id: {room_id}')
         return
 
-    host = room.get_user_by_id(receiver_id)
+    host_sid = room.host.sid
 
-    if not host:
-        handle_bad_request(f'No host with id: {receiver_id}')
-        return
-
-    sio.emit(f'sharing/code_send', data=data, to=host.sid)
+    sio.emit(f'sharing/code_send', data=data, to=host_sid)
     # log
-    emit_log(f'Sharing started, data: {data}')
+    emit_log(f'Sharing started')
 
 
 @sio.on('room/rejoin')

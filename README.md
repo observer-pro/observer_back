@@ -1,65 +1,52 @@
 # IDE Observer (Backend)
 
-The Observer App is a real-time chat application based on Sockets that allows users to create and join rooms, chat with other participants, and observe their activities in different rooms. 
+The Observer App is a real-time chat application based on Sockets that allows users to create and join rooms, chat with other participants, and observe their activities in different rooms.
 
 Backend is built on python-socketio.
 
 ## Features:
-- Create and host chat rooms.
-- Join/Leave existing chat rooms as participants.
-- Users can send and receive messages in their rooms.
-- Participants are notified when someone joins or leaves the room.
+- Hosts (teachers) can create new chat rooms, providing a platform for collaboration and communication.
+- Users can join or leave existing chat rooms as participants (students and teacher).
+- Students and teacher can send and receive messages in their rooms.
+- Participants  can reconnect to a room if they temporarily lose connection, ensuring continuity in communication.
+- Teachers can initiate and terminate code sharing sessions, allowing participants to collaborate on code in real-time.
+- Students can send files (code snippets, documents) to the teacher during code sharing sessions, promoting efficient collaboration.
 
-## Installation:
-- Clone the repository to your local machine `git clone <repository_url>`
+## Installation and Run:
+- Clone the repository to your local machine `git clone git@github.com:bendenko-v/IDE_Observer.git`
 - Create and activate a virtual environment (optional but recommended) `python3 -m venv venv`
 `source venv/bin/activate`
 - Install the required packages `pip install -r requirements.txt`
+- Run the app `python3 main.py`
 
 ## Usage:
-- Run the app `python main.py`
 
-[//]: # (**Server-side Socket Events:**)
+### Events:
+**Room Creation and Connection:**
 
-[//]: # (- **connect**: Triggered when a user connects to the server.)
+- `room/create`: Create a room. Sent by the host, a room is created, and data about the room is sent in the `room/update` event.
+- `room/join`: Join an existing room. Users connect to a room and receive `room/join` in response, containing their data.
 
-[//]: # (- **disconnect**: Triggered when a user disconnects from the server.)
+**Message Exchange:**
 
-[//]: # (- **host**: Triggered when a user hosts a new room.)
+- `message/to_client`: Send a message from the teacher to the student.
+- `message/to_mentor`: Send a message from the student to the teacher.
 
-[//]: # (- **join**: Triggered when a user joins an existing room.)
+**Collaborative Usage Control:**
 
-[//]: # (- **leave**: Triggered when a user leaves a room.)
+- `sharing/start`:  Start code sharing.
+- `sharing/end`: End code sharing.
+- `sharing/code_send`: Send files to the host.
 
-[//]: # (- **message**: Triggered when a user sends a message in a room.)
+**Room Management:**
 
-[//]: # (- )
+- `room/rejoin`: Reconnect a student to the room.
+- `room/rehost`: Reconnect a teacher to the room.
+- `room/close`: Close the room.
 
-[//]: # (**Client-side Socket Events:**)
+**Additional Information:**
 
-[//]: # (- **room_data**: Sent by the server in response to host and join events, provides room data including room ID, name, host, and participants.)
-
-[//]: # (- **message**: Sent by the server in response to the message event, contains the message text.)
-
-[//]: # ()
-[//]: # (## API Endpoints:)
-
-[//]: # ()
-[//]: # (The application also provides API endpoints to fetch the list of active rooms and their participants.)
-
-[//]: # ()
-[//]: # (**GET /api/room**: Retrieves a list of all active rooms and their participants.)
-
-[//]: # (**GET /api/users**: Retrieves a list of all users with names and roles.)
-
-[//]: # ()
-[//]: # (![GET examples]&#40;https://habrastorage.org/webt/9o/e7/w7/9oe7w7fmisaseozbwxzdsb2wjxy.png&#41;)
-
-[//]: # ()
-[//]: # (## Tests:)
-
-[//]: # ()
-[//]: # (Testing was performed manually using Postman. It involved creating rooms by hosts, connecting users to rooms, leaving rooms, and sending messages.)
-
-[//]: # ()
-[//]: # (![Testing]&#40;https://habrastorage.org/webt/pf/2x/z1/pf2xz15zbu9hzxwrbyusasqeng0.jpeg&#41;)
+- `room/update`: Receive room data by the host after connecting via `room/join`.
+- `room/closed`: Notify all students in the room about the room closure.
+- `log`:  Event logging.
+- `error`: Error messages.
