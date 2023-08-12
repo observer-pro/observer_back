@@ -181,11 +181,12 @@ def send_sharing_status(data: dict, command: str) -> None:
     receiver_id = data.get('user_id', None)
 
     room = Room.get_room_by_id(room_id)
-    receiver = room.get_user_by_id(receiver_id)
 
     if not room:
         handle_bad_request(f'No room with id: {room_id}')
         return
+
+    receiver = room.get_user_by_id(receiver_id)
 
     if not receiver:
         handle_bad_request(f'No such user id {receiver_id} in the room')
@@ -202,11 +203,12 @@ def sharing_code_from_user(sid, data):
     receiver_id = data.get('user_id', None)
 
     room = Room.get_room_by_id(room_id)
-    host = room.get_user_by_id(receiver_id)
 
     if not room:
         handle_bad_request(f'No room with id: {room_id}')
         return
+
+    host = room.get_user_by_id(receiver_id)
 
     if not host:
         handle_bad_request(f'No host with id: {receiver_id}')
