@@ -123,7 +123,6 @@ def send_message(sender_sid: str, data: dict, to: str) -> None:
     Returns:
         None. The function emits the message to the recipient using Socket.IO.
     """
-    # TODO: если to_mentor то не нужен user_id, берём host_id из room
     room_id = data.get('room_id', None)
     content = data.get('content', None)
     room = Room.get_room_by_id(room_id)
@@ -200,6 +199,15 @@ def send_sharing_status(data: dict, command: str) -> None:
 
 @sio.on('sharing/code_send')
 def sharing_code_from_user(sid, data):
+    send_sharing_code(data, command='code_send')
+
+
+@sio.on('sharing/code_update')
+def sharing_code_from_user(sid, data):
+    send_sharing_code(data, command='code_update')
+
+
+def send_sharing_code(data: dict, command: str) -> None:
     room_id = data.get('room_id', None)
     room = Room.get_room_by_id(room_id)
 
@@ -209,9 +217,9 @@ def sharing_code_from_user(sid, data):
 
     host_sid = room.host.sid
 
-    sio.emit(f'sharing/code_send', data=data, to=host_sid)
+    sio.emit(f'sharing/{command}', data=data, to=host_sid)
     # log
-    emit_log(f'Sharing started')
+    emit_log(f'sharing/{command} to host with id: {room.host.id}')
 
 
 @sio.on('room/rejoin')
