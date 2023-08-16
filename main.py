@@ -81,7 +81,7 @@ def room_join(sid, data):
     # Update data for Host
     sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
     # log
-    emit_log(f'User {user.id} has joined the Room with id: {room.id}')
+    emit_log(f'User {user.id} has joined the Room with id: {room_id}')
 
 
 @sio.on('room/leave')
