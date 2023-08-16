@@ -50,6 +50,16 @@ class Room:
                 return user
         return None
 
+    def remove_user_from_room(self, user_id: int) -> bool:
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return False
+        if user in self.users:
+            user.room = None
+            self.users.remove(user)
+            return True
+        return False
+
     @classmethod
     def get_room_by_id(cls, room_id: int) -> Optional['Room']:
         return cls.rooms.get(room_id)

@@ -81,7 +81,34 @@ def room_join(sid, data):
     # Update data for Host
     sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
     # log
-    emit_log(f'User {sid} has joined the Room with id: {room.id}')
+    emit_log(f'User {user.id} has joined the Room with id: {room.id}')
+
+
+@sio.on('room/leave')
+def room_join(sid, data):
+    room_id = data.get('room_id', None)
+    user = User.get_user_by_sid(sid)
+
+    if not room_id:
+        handle_bad_request(f'No room id present in data')
+        return
+
+    if not user:
+        handle_bad_request(f'No user registered with sid: {sid}')
+        return
+
+    room = Room.get_room_by_id(room_id)
+    if not room:
+        handle_bad_request(f'No room with id: {room_id}')
+        return
+
+    if not room.remove_user_from_room(user.id):
+        handle_bad_request(f'User is not in room (id: {user.room})')
+        return
+
+    sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
+    # log
+    emit_log(f'User {user.id} has left the Room with id: {room_id}')
 
 
 @sio.on('room/data')
