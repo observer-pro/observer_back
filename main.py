@@ -85,7 +85,7 @@ def room_join(sid, data):
 
 
 @sio.on('room/leave')
-def room_join(sid, data):
+def room_leave(sid, data):
     room_id = data.get('room_id', None)
     user = User.get_user_by_sid(sid)
 
@@ -225,12 +225,12 @@ def send_sharing_status(data: dict, command: str) -> None:
 
 
 @sio.on('sharing/code_send')
-def sharing_code_from_user(sid, data):
+def sharing_code_send(sid, data):
     send_sharing_code(data, command='code_send')
 
 
 @sio.on('sharing/code_update')
-def sharing_code_from_user(sid, data):
+def sharing_code_update(sid, data):
     send_sharing_code(data, command='code_update')
 
 
