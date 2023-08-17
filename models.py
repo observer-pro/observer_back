@@ -1,4 +1,5 @@
-import datetime
+from datetime import datetime, timezone
+from enum import Enum
 from typing import Optional
 
 
@@ -23,6 +24,8 @@ class Room:
     def serialize_users(self, users: list['User']) -> list[dict[str, ...]]:
         serialized_users = []
         for user in users:
+            if user.status == StatusEnum.OFFLINE:
+                continue
             serialized_user = {
                 'id': user.id,
                 'sid': user.sid,
@@ -66,20 +69,29 @@ class Room:
 
     @classmethod
     def delete_room(cls, room_id: int) -> None:
-        if room_id in cls.rooms:
+        room = cls.get_room_by_id(room_id)
+        if room:
+            for user in room.users:
+                del User.users[user.sid]
             del cls.rooms[room_id]
+
+
+class StatusEnum(Enum):
+    OFFLINE = 'offline'
+    ONLINE = 'online'
 
 
 class User:
     id = 100
     users = {}
 
-    def __init__(self, sid, name=None, room_id=None, role='client'):
+    def __init__(self, sid, name=None, room_id=None, role='client', status=StatusEnum.ONLINE):
         self.id: int = type(self).id
         self.sid: str = sid
         self.room: int = room_id
         self.name: str = name
         self.role: str = role
+        self.status: StatusEnum = status
         self.messages: list[Message] = []
         type(self).id += 1
         type(self).users[self.sid] = self
@@ -98,7 +110,7 @@ class Message:
         self.receiver: int = receiver_id
         self.content: str = content
         self.status: str | None = None
-        current_time = datetime.datetime.now().time()
+        current_time = datetime.now(timezone.utc).time()
         self.created_at: str = current_time.strftime('%H:%M:%S')
 
     def __repr__(self):
