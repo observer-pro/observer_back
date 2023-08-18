@@ -21,7 +21,8 @@ class Room:
     def add_user(self, user: 'User'):
         self.users.append(user)
 
-    def serialize_users(self, users: list['User']) -> list[dict[str, ...]]:
+    @staticmethod
+    def serialize_users(users: list['User']) -> list[dict[str, ...]]:
         serialized_users = []
         for user in users:
             if user.status == StatusEnum.OFFLINE:
@@ -97,7 +98,12 @@ class User:
         type(self).users[self.sid] = self
 
     def __repr__(self):
-        return f'{type(self).__name__} obj, messages: {self.messages}'
+        return f'{type(self).__name__} obj, sid: {self.sid}'
+
+    def set_new_sid(self, sid: str) -> None:
+        del type(self).users[self.sid]
+        self.sid = sid
+        type(self).users[self.sid] = self
 
     @classmethod
     def get_user_by_sid(cls, sid: str) -> Optional['User']:
