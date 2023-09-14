@@ -82,17 +82,25 @@ class StatusEnum(Enum):
     ONLINE = 'online'
 
 
+class SignalEnum(Enum):
+    NONE = 'NONE'
+    IN_PROGRESS = 'IN_PROGRESS'
+    HELP = 'HELP'
+    DONE = 'DONE'
+
+
 class User:
     id = 100
     users = {}
 
-    def __init__(self, sid, name=None, room_id=None, role='client', status=StatusEnum.ONLINE):
+    def __init__(self, sid, name=None, room_id=None, role='client', signal=SignalEnum.NONE, status=StatusEnum.ONLINE):
         self.id: int = type(self).id
         self.sid: str = sid
         self.room: int = room_id
         self.name: str = name
         self.role: str = role
         self.status: StatusEnum = status
+        self.signal: SignalEnum = signal
         self.messages: list[Message] = []
         type(self).id += 1
         type(self).users[self.sid] = self

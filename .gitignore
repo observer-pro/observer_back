@@ -37,6 +37,7 @@ node_modules/
 *.pyc
 
 # Miscellaneous
+requirements_dev.txt
 *.bak
 *.log
 *.sqlite3

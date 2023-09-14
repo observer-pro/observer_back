@@ -4,6 +4,8 @@ The Observer App is a real-time chat application built on the concept of WebSock
 
 Backend is built on **python-socketio**.
 
+![Observer](https://habrastorage.org/webt/ii/rt/u6/iirtu6stfynhos1m1bwekdms6vu.jpeg)
+
 ## Features:
 - Hosts (teachers) can create new chat rooms, providing a platform for collaboration and communication.
 - Users can join or leave existing chat rooms as participants (students and teacher).
@@ -42,8 +44,12 @@ Backend is built on **python-socketio**.
 - `sharing/end`: End code sharing.
 - `sharing/code_send`: Send files to the host.
 - `sharing/code_update`: Send files after changes to the host.
+- `signal`: Sends a signal to the teacher from the student about the current action (inaction, in progress, help needed, ready).
 
 **Additional Events:**
 
 - `log`:  Event logging.
 - `error`: Error messages.
+
+## Links:
+[💻 Observer App Info](https://raids.tilda.ws/observer)

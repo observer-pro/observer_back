@@ -3,7 +3,7 @@ import random
 import eventlet
 import socketio
 
-from models import Room, StatusEnum, User
+from models import Room, SignalEnum, StatusEnum, User
 from utils import (
     create_test_room,
     emit_log,
@@ -118,6 +118,29 @@ def room_data(sid, data):
     room = Room.get_room_by_id(room_id)
 
     sio.emit('room/update', data=room.get_room_data(), to=sid)
+
+
+@sio.on('signal')
+def signal(sid, data):
+    if not validate_data(sio, data, 'user_id'):
+        return
+
+    signal_value = data.get('value', None)
+    if not signal_value:
+        handle_bad_request(sio, f'No signal received')
+
+    try:
+        SignalEnum(signal_value)
+    except ValueError:
+        handle_bad_request(sio, f'Invalid signal: {signal_value}')
+
+    user = User.get_user_by_sid(sid)
+    user.signal = signal_value
+    room = Room.get_room_by_id(user.room)
+
+    sio.emit(f'signal', data=data, to=room.host.sid)
+    # log
+    emit_log(sio, f'User {user.id} send signal to host with id {room.host.id}.')
 
 
 @sio.on('message/to_client')
