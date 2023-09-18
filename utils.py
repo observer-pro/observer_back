@@ -13,7 +13,7 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 
-def create_test_room(sio: socketio.Server, sid):
+def create_test_room(sio: socketio.Server, sid) -> None:
     """Create room for tests"""
     room = Room.get_room_by_id(1000)
     if not room:

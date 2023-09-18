@@ -1,28 +1,30 @@
-[tool.black]
-target-version = ['py310']
+[tool.ruff]
 line-length = 120
-skip-string-normalization = 1
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.venv
-  | \.pytest_cache
-)/
-'''
-
-[tool.isort]
-py_version=310
-line_length = 120
-multi_line_output = 3
-include_trailing_comma = true
-combine_as_imports = true
-combine_star = true
-force_grid_wrap = 0
-skip = ['.gitignore', '.dockerignore']
-skip_glob = [
-    '**/migrations/**',
-    '.git',
-    '.venv',
-    '.idea'
+target-version = "py310"
+select = [
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # isort
+    "I",
+    # pep8-naming
+    "N"
+]
+fixable = ["ALL"]
+show-fixes = true
+include = ["*.py"]
+exclude = [
+    ".git",
+    ".idea",
+    ".venv",
+    "venv",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".pytest_cache",
+    ".pytype",
+    "__pypackages__",
+    "_build",
+    "build",
 ]

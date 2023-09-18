@@ -127,18 +127,20 @@ def signal(sid, data):
 
     signal_value = data.get('value', None)
     if not signal_value:
-        handle_bad_request(sio, f'No signal received')
+        handle_bad_request(sio, 'No signal received')
+        return
 
     try:
         SignalEnum(signal_value)
     except ValueError:
         handle_bad_request(sio, f'Invalid signal: {signal_value}')
+        return
 
     user = User.get_user_by_sid(sid)
     user.signal = signal_value
     room = Room.get_room_by_id(user.room)
 
-    sio.emit(f'signal', data=data, to=room.host.sid)
+    sio.emit('signal', data=data, to=room.host.sid)
     # log
     emit_log(sio, f'User {user.id} send signal to host with id {room.host.id}.')
 
