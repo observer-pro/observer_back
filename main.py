@@ -9,6 +9,7 @@ from utils import (
     emit_log,
     handle_bad_request,
     rejoin,
+    send_exercise,
     send_message,
     send_sharing_code,
     send_sharing_status,
@@ -142,7 +143,7 @@ def signal(sid, data):
 
     sio.emit('signal', data=data, to=room.host.sid)
     # log
-    emit_log(sio, f'User {user.id} send signal to host with id {room.host.id}.')
+    emit_log(sio, f'The user {user.id} sent a [{signal_value}] signal to host with id {room.host.id}.')
 
 
 @sio.on('message/to_client')
@@ -173,6 +174,11 @@ def sharing_code_send(sid, data):
 @sio.on('sharing/code_update')
 def sharing_code_update(sid, data):
     send_sharing_code(sio, data, command='code_update')
+
+
+@sio.on('exercise')
+def sharing_exercise(sid, data):
+    send_exercise(sio, data, sid)
 
 
 @sio.on('room/rejoin')

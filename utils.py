@@ -42,8 +42,10 @@ def validate_data(sio: socketio.Server, data, *keys) -> bool:
 
     for key in keys:
         if key not in data:
-            handle_bad_request(sio, f'No {key} present in data')
+            handle_bad_request(sio, f'No [{key}] present in data')
             return False
+        if key == 'content':
+            return True
         if not isinstance(data[key], int):
             handle_bad_request(sio, f'{key} should be an integer')
             return False
@@ -138,6 +140,21 @@ def send_sharing_code(sio: socketio.Server, data: dict, command: str) -> None:
     sio.emit(f'sharing/{command}', data=data, to=room.host.sid)
     # log
     emit_log(sio, f'sharing/{command} to host with id: {room.host.id}')
+
+
+def send_exercise(sio: socketio.Server, data: dict, sid: str) -> None:
+    if not validate_data(sio, data, 'content'):
+        return
+
+    content = data.get('content', '')
+    room_id = User.get_user_by_sid(sid).room
+    room = Room.get_room_by_id(room_id)
+
+    for student in room.users:
+        if student.role == 'client':
+            sio.emit('exercise', data={'content': content}, to=student.sid)
+    # log
+    emit_log(sio, 'The task has been sent out to the students!')
 
 
 def rejoin(sio: socketio.Server, sid: str, data: dict, commmand: str) -> None:
