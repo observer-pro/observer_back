@@ -1,12 +1,14 @@
 # IDE Observer (Backend)
 
-The Observer App is a real-time chat application built on the concept of WebSocket communication, that allows users to create and join rooms, chat and share their code with teacher.
+The Observer App is a real-time chat application built on the concept of WebSocket communication, that allows users to
+create and join rooms, chat and share their code with teacher.
 
 Backend is built on **python-socketio**.
 
 ![Observer](https://habrastorage.org/webt/ii/rt/u6/iirtu6stfynhos1m1bwekdms6vu.jpeg)
 
 ## Features:
+
 - Hosts (teachers) can create new chat rooms, providing a platform for collaboration and communication.
 - Users can join or leave existing chat rooms as participants (students and teacher).
 - Students and teacher can send and receive messages in their rooms.
@@ -15,15 +17,17 @@ Backend is built on **python-socketio**.
 - Students can send files (code snippets, documents) to the teacher during code sharing sessions, promoting efficient collaboration.
 
 ## Installation and Run:
+
 - Clone the repository to your local machine `git clone git@github.com:bendenko-v/IDE_Observer.git`
 - Create and activate a virtual environment (optional but recommended) `python3 -m venv venv`
-`source venv/bin/activate`
+  `source venv/bin/activate`
 - Install the required packages `pip install -r requirements.txt`
 - Run the app `python3 main.py`
 
 ## Usage:
 
 ### Events:
+
 **Room Creation and Connection:**
 
 - `room/create`: Create a room. Sent by the host, a room is created, and data about the room is sent in the `room/update` event.
@@ -40,16 +44,18 @@ Backend is built on **python-socketio**.
 
 **Collaborative Usage Control:**
 
-- `sharing/start`:  Start code sharing.
+- `sharing/start`: Initiates code sharing.
 - `sharing/end`: End code sharing.
-- `sharing/code_send`: Send files to the host.
-- `sharing/code_update`: Send files after changes to the host.
-- `signal`: Sends a signal to the teacher from the student about the current action (inaction, in progress, help needed, ready).
+- `sharing/code_send`: Sends files to the host.
+- `sharing/code_update`: Sends updated files to the host after making changes.
+- `signal`: Allows students to send signals to the teacher indicating their current status (e.g., inaction, in progress, help needed, ready).
+- `exercise`:  Distributes the task content from the teacher to all students in the room.
 
 **Additional Events:**
 
-- `log`:  Event logging.
-- `error`: Error messages.
+- `log`: Technical event for logging.
+- `error`: Technical event for error messages.
 
 ## Links:
+
 [💻 Observer App Info](https://raids.tilda.ws/observer)
