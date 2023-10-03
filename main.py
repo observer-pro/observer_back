@@ -81,6 +81,12 @@ def room_join(sid, data):
 
     # Message to student
     sio.emit('room/join', data={'user_id': user.id, 'room_id': room_id}, to=sid)
+    # If exercise exists, send it to student
+    if room.exercise:
+        sio.emit('exercise', data={'content': room.exercise}, to=sid)
+        # log
+        emit_log(sio, f'The exercise was sent to the student (id: {user.id})!')
+
     # Update data for teacher
     sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
     # log

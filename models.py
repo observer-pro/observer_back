@@ -11,7 +11,7 @@ class Room:
         self.id: int = type(self).id
         self.users: list[User] = []  # all clients include owner
         self.host: User = host
-        self.codecaster: int
+        self.exercise: str = ''
         type(self).id += 1
         type(self).rooms[self.id] = self
 
@@ -43,7 +43,6 @@ class Room:
             'id': self.id,
             'users': self.serialize_users(self.users),
             'host': self.host.id,
-            'codecaster': None,
         }
 
     def get_user_by_id(self, user_id: int | None) -> Optional['User']:

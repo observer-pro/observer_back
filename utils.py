@@ -150,11 +150,13 @@ def send_exercise(sio: socketio.Server, data: dict, sid: str) -> None:
     room_id = User.get_user_by_sid(sid).room
     room = Room.get_room_by_id(room_id)
 
+    room.exercise = content  # Save exercise
+
     for student in room.users:
         if student.role == 'client':
             sio.emit('exercise', data={'content': content}, to=student.sid)
     # log
-    emit_log(sio, 'The task has been sent out to the students!')
+    emit_log(sio, 'The exercise was sent to all students in the room!')
 
 
 def rejoin(sio: socketio.Server, sid: str, data: dict, commmand: str) -> None:
