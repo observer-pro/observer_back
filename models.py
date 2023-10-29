@@ -12,6 +12,7 @@ class Room:
         self.users: list[User] = []  # all clients include owner
         self.host: User = host
         self.exercise: str = ''
+        self.settings: str = ''
         type(self).id += 1
         type(self).rooms[self.id] = self
 

@@ -44,8 +44,11 @@ def validate_data(sio: socketio.Server, data, *keys) -> bool:
         if key not in data:
             handle_bad_request(sio, f'No [{key}] present in data')
             return False
-        if key == 'content':
+        if key in ('content', 'files_to_ignore'):
             return True
+        if key == 'accepted' and not isinstance(data[key], bool):
+            handle_bad_request(sio, f'{key} should be a boolean')
+            return False
         if not isinstance(data[key], int):
             handle_bad_request(sio, f'{key} should be an integer')
             return False
@@ -113,6 +116,15 @@ def send_message(sio: socketio.Server, sender_sid: str, data: dict, to: str) -> 
 
 
 def send_sharing_status(sio: socketio.Server, data: dict, command: str) -> None:
+    """
+    Send sharing status to a user in a specific room.
+    Args:
+        sio (socketio.Server): The Socket.IO server instance.
+        data (dict): The data containing the room ID and user ID.
+        command (str): The command to send (start or end).
+    Returns:
+        None
+    """
     if not validate_data(sio, data, 'room_id', 'user_id'):
         return
 
@@ -127,10 +139,19 @@ def send_sharing_status(sio: socketio.Server, data: dict, command: str) -> None:
 
     sio.emit(f'sharing/{command}', data={}, to=receiver.sid)
     # log
-    emit_log(sio, f"Host send '{command}' to user: {receiver_id}")
+    emit_log(sio, f"Host send '{command}' to the user: {receiver_id}")
 
 
 def send_sharing_code(sio: socketio.Server, data: dict, command: str) -> None:
+    """
+    Send sharing code to the host in the specified room.
+    Args:
+        sio (socketio.Server): The Socket.IO server instance.
+        data (dict): The data to be sent.
+        command (str): The command to be sent (code_send or code_update).
+    Returns:
+        None
+    """
     if not validate_data(sio, data, 'room_id'):
         return
 
@@ -143,6 +164,15 @@ def send_sharing_code(sio: socketio.Server, data: dict, command: str) -> None:
 
 
 def send_exercise(sio: socketio.Server, data: dict, sid: str) -> None:
+    """
+    Send exercise to all students in the same room as the host with the given sid
+    Args:
+        sio (socketio.Server): The socketio server instance.
+        data (dict): The data containing the exercise content.
+        sid (str): The session ID of the user.
+    Returns:
+        None
+    """
     if not validate_data(sio, data, 'content'):
         return
 
@@ -156,7 +186,77 @@ def send_exercise(sio: socketio.Server, data: dict, sid: str) -> None:
         if student.role == 'client':
             sio.emit('exercise', data={'content': content}, to=student.sid)
     # log
-    emit_log(sio, 'The exercise was sent to all students in the room!')
+    emit_log(sio, f'The exercise was sent to all students in the room {room_id}!')
+
+
+def send_exercise_feedback(sio: socketio.Server, data: dict) -> None:
+    """
+    Sends exercise feedback to a user via socketio.
+    Args:
+        sio (socketio.Server): The socketio server instance.
+        data (dict): The data containing the user's room_id, user_id, and accept status (true or false).
+    Returns:
+        None
+    """
+    if not validate_data(sio, data, 'room_id', 'user_id', 'accepted'):
+        return
+
+    room_id = data.get('room_id')
+    room = Room.get_room_by_id(room_id)
+
+    user_id = data.get('user_id', None)
+    user = room.get_user_by_id(user_id)
+    if not user:
+        handle_bad_request(sio, f'No such user with id {user_id}!')
+        return
+
+    accepted = data.get('accepted')
+    sio.emit('exercise/feedback', data={'accepted': accepted}, to=user.sid)
+    # log
+    emit_log(sio, f'Feedback (accepted: {accepted}) was sent to the user with id: {user.id}')
+
+
+def send_exercise_reset(sio: socketio.Server, sid: str) -> None:
+    """
+    Sends a 'exercise/reset' event to all students in the same room as the host with the given sid
+    Args:
+        sio (socketio.Server): The socket.io server instance.
+        sid (str): The session ID of the user.
+    Returns:
+        None
+    """
+    room_id = User.get_user_by_sid(sid).room
+    room = Room.get_room_by_id(room_id)
+
+    for student in room.users:
+        if student.role == 'client':
+            sio.emit('exercise/reset', data={}, to=student.sid)
+    # log
+    emit_log(sio, f'The exercise/reset was sent to all students in the room {room_id}!')
+
+
+def send_settings(sio: socketio.Server, data: dict, sid: str) -> None:
+    """
+    Sends settings to all students in the room.
+    Args:
+        sio (socketio.Server): The socketio server instance.
+        data (dict): The data containing the settings.
+        sid (str): The session ID of the user.
+    """
+    if not validate_data(sio, data, 'files_to_ignore'):
+        return
+
+    files_to_ignore = data.get('files_to_ignore', '')
+    room_id = User.get_user_by_sid(sid).room
+    room = Room.get_room_by_id(room_id)
+
+    room.settings = files_to_ignore  # Save settings
+
+    for student in room.users:
+        if student.role == 'client':
+            sio.emit('settings', data={'files_to_ignore': files_to_ignore}, to=student.sid)
+    # log
+    emit_log(sio, f'The settings were sent to all students in the room {room_id}!')
 
 
 def rejoin(sio: socketio.Server, sid: str, data: dict, commmand: str) -> None:

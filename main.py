@@ -10,7 +10,10 @@ from utils import (
     handle_bad_request,
     rejoin,
     send_exercise,
+    send_exercise_feedback,
+    send_exercise_reset,
     send_message,
+    send_settings,
     send_sharing_code,
     send_sharing_status,
     validate_data,
@@ -81,11 +84,18 @@ def room_join(sid, data):
 
     # Message to student
     sio.emit('room/join', data={'user_id': user.id, 'room_id': room_id}, to=sid)
+
     # If exercise exists, send it to student
     if room.exercise:
         sio.emit('exercise', data={'content': room.exercise}, to=sid)
         # log
         emit_log(sio, f'The exercise was sent to the student (id: {user.id})!')
+
+    # If settings exists, send it to student
+    if room.settings:
+        sio.emit('settings', data={'files_to_ignore': room.settings}, to=sid)
+        # log
+        emit_log(sio, f'The settings were sent to the student (id: {user.id})!')
 
     # Update data for teacher
     sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
@@ -183,8 +193,23 @@ def sharing_code_update(sid, data):
 
 
 @sio.on('exercise')
-def sharing_exercise(sid, data):
+def exercise(sid, data):
     send_exercise(sio, data, sid)
+
+
+@sio.on('exercise/feedback')
+def exercise_feedback(sid, data):
+    send_exercise_feedback(sio, data)
+
+
+@sio.on('exercise/reset')
+def exercise_reset(sid, data):
+    send_exercise_reset(sio, sid)
+
+
+@sio.on('settings')
+def sharing_settings(sid, data):
+    send_settings(sio, data, sid)
 
 
 @sio.on('room/rejoin')
