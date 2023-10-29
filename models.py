@@ -17,7 +17,7 @@ class Room:
         type(self).rooms[self.id] = self
 
     def __repr__(self):
-        return f'{type(self).__name__}, users: {self.users}'
+        return f'{type(self).__name__} {self.id}, users: {self.users}'
 
     def add_user(self, user: 'User'):
         self.users.append(user)

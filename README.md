@@ -6,6 +6,7 @@ create and join rooms, chat and share their code with teacher.
 Backend is built on **python-socketio**.
 
 ![Observer](https://habrastorage.org/webt/ii/rt/u6/iirtu6stfynhos1m1bwekdms6vu.jpeg)
+![Settings](https://habrastorage.org/webt/_h/-w/c_/_h-wc_xic8sdbqot6i1mf_adbs8.png)
 
 ## Features:
 
@@ -50,12 +51,10 @@ Backend is built on **python-socketio**.
 - `sharing/code_update`: Sends updated files to the host after making changes.
 - `signal`: Allows students to send signals to the teacher indicating their current status (e.g., inaction, in progress, help needed, ready).
 - `exercise`:  Distributes the task content from the teacher to all students in the room.
-
-**Additional Events:**
-
-- `log`: Technical event for logging.
-- `error`: Technical event for error messages.
+- `exercise/feedback`: Teacher sends accepts or rejects an exercise submitted by a student.
+- `exercise/reset`: Teacher to reset the accepted/rejected statuses of their exercises
+- `settings`: Transmitting configuration settings.
 
 ## Links:
 
-[💻 Observer App Info](https://raids.tilda.ws/observer)
+[💻 observer-app.pro](https://observer-app.pro/)

@@ -1,244 +1,128 @@
-import random
-
-import eventlet
 import socketio
+import uvicorn
 
-from models import Room, SignalEnum, StatusEnum, User
-from utils import (
+from events.exercise import send_exercise, send_exercise_feedback, send_exercise_reset
+from events.message import send_message
+from events.room import (
+    close_room,
+    create_room,
     create_test_room,
-    emit_log,
-    handle_bad_request,
+    disconnect_user,
+    exit_from_room,
+    join_to_room,
     rejoin,
-    send_exercise,
-    send_exercise_feedback,
-    send_exercise_reset,
-    send_message,
-    send_settings,
-    send_sharing_code,
-    send_sharing_status,
-    validate_data,
+    room_log,
 )
+from events.settings import send_settings
+from events.sharing import send_sharing_code, send_sharing_status, send_signal
+from events.utils import emit_log
 
-sio = socketio.Server(async_mode='eventlet', cors_allowed_origins='*')
-eventlet.monkey_patch()
-app = socketio.WSGIApp(sio)
+sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
+app = socketio.ASGIApp(sio)
 
 
 @sio.event
-def connect(sid, data):
-    create_test_room(sio, sid)
+async def connect(sid, data):
+    await create_test_room(sio, sid)
     # log
-    emit_log(sio, f'User {sid} connected')
+    await emit_log(sio, f'User {sid} connected')
 
 
 @sio.event
-def disconnect(sid):
-    user = User.get_user_by_sid(sid)
-    if user and user.room:
-        user.status = StatusEnum.OFFLINE
-        room = Room.get_room_by_id(user.room)
-
-        if user.role == 'host':  # teacher disconnected
-            for student in room.users:
-                if student.role == 'client':
-                    sio.emit('message', {'message': 'STATUS: The teacher is offline!'}, to=student.sid)
-            # log
-            emit_log(sio, f'Teacher disconnected (host id: {user.id}, room id: {room.id})')
-        else:  # student disconnected
-            sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
-            # log
-            emit_log(sio, f'Student disconnected (id: {user.id}, room id: {room.id})')
+async def disconnect(sid):
+    await disconnect_user(sio, sid)
 
 
 @sio.on('room/create')
-def room_create(sid, data):
-    hostname = data.get('name', None)
-    user = User(sid, role='host', name=hostname)
-    room = Room(host=user)
-    room.add_user(user)
-    user.room = room.id
-    sio.emit('room/update', data=room.get_room_data(), to=sid)
-    # log
-    emit_log(sio, f'User {sid} created room (id: {room.id})')
+async def room_create(sid, data):
+    await create_room(sio, sid, data)
 
 
 @sio.on('room/join')
-def room_join(sid, data):
-    if not validate_data(sio, data, 'room_id'):
-        return
-
-    room_id = data.get('room_id')
-    room = Room.get_room_by_id(room_id)
-
-    username = data.get('name', None)
-    if not username:
-        username = 'Guest ' + str(random.randint(1, 10000))
-
-    user = User.get_user_by_sid(sid)
-    if user and user.room is not None:
-        handle_bad_request(sio, f'User already in room (id: {user.room})')
-        return
-
-    user = User(sid, role='client', name=username, room_id=room_id)
-    room.add_user(user)
-
-    # Message to student
-    sio.emit('room/join', data={'user_id': user.id, 'room_id': room_id}, to=sid)
-
-    # If exercise exists, send it to student
-    if room.exercise:
-        sio.emit('exercise', data={'content': room.exercise}, to=sid)
-        # log
-        emit_log(sio, f'The exercise was sent to the student (id: {user.id})!')
-
-    # If settings exists, send it to student
-    if room.settings:
-        sio.emit('settings', data={'files_to_ignore': room.settings}, to=sid)
-        # log
-        emit_log(sio, f'The settings were sent to the student (id: {user.id})!')
-
-    # Update data for teacher
-    sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
-    # log
-    emit_log(sio, f'User {user.id} has joined the Room with id: {room_id}')
+async def room_join(sid, data):
+    await join_to_room(sio, sid, data)
 
 
 @sio.on('room/leave')
-def room_leave(sid, data):
-    if not validate_data(sio, data, 'room_id'):
-        return
-
-    room_id = data.get('room_id')
-    room = Room.get_room_by_id(room_id)
-    user = User.get_user_by_sid(sid)
-
-    if not user:
-        handle_bad_request(sio, f'No user registered with sid: {sid}')
-        return
-
-    if not room.remove_user_from_room(user.id):
-        handle_bad_request(sio, f'User is not in room (id: {user.room})')
-        return
-
-    sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
-    # log
-    emit_log(sio, f'User {user.id} has left the Room with id: {room_id}')
-
-
-@sio.on('room/data')
-def room_data(sid, data):
-    """Just for testing"""
-    if not validate_data(sio, data, 'room_id'):
-        return
-
-    room_id = data.get('room_id', None)
-    room = Room.get_room_by_id(room_id)
-
-    sio.emit('room/update', data=room.get_room_data(), to=sid)
+async def room_leave(sid, data):
+    await exit_from_room(sio, sid, data)
 
 
 @sio.on('signal')
-def signal(sid, data):
-    if not validate_data(sio, data, 'user_id'):
-        return
-
-    signal_value = data.get('value', None)
-    if not signal_value:
-        handle_bad_request(sio, 'No signal received')
-        return
-
-    try:
-        SignalEnum(signal_value)
-    except ValueError:
-        handle_bad_request(sio, f'Invalid signal: {signal_value}')
-        return
-
-    user = User.get_user_by_sid(sid)
-    user.signal = signal_value
-    room = Room.get_room_by_id(user.room)
-
-    sio.emit('signal', data=data, to=room.host.sid)
-    # log
-    emit_log(sio, f'The user {user.id} sent a [{signal_value}] signal to host with id {room.host.id}.')
+async def signal(sid, data):
+    await send_signal(sio, sid, data)
 
 
 @sio.on('message/to_client')
-def message_to_client(sid, data):
-    send_message(sio, sid, data, 'to_client')
+async def message_to_client(sid, data):
+    await send_message(sio, sid, data, 'to_client')
 
 
 @sio.on('message/to_mentor')
-def message_to_mentor(sid, data):
-    send_message(sio, sid, data, 'to_mentor')
+async def message_to_mentor(sid, data):
+    await send_message(sio, sid, data, 'to_mentor')
 
 
 @sio.on('sharing/start')
-def sharing_start(sid, data):
-    send_sharing_status(sio, data, command='start')
+async def sharing_start(sid, data):
+    await send_sharing_status(sio, data, command='start')
 
 
 @sio.on('sharing/end')
-def sharing_end(sid, data):
-    send_sharing_status(sio, data, command='end')
+async def sharing_end(sid, data):
+    await send_sharing_status(sio, data, command='end')
 
 
 @sio.on('sharing/code_send')
-def sharing_code_send(sid, data):
-    send_sharing_code(sio, data, command='code_send')
+async def sharing_code_send(sid, data):
+    await send_sharing_code(sio, data, command='code_send')
 
 
 @sio.on('sharing/code_update')
-def sharing_code_update(sid, data):
-    send_sharing_code(sio, data, command='code_update')
+async def sharing_code_update(sid, data):
+    await send_sharing_code(sio, data, command='code_update')
 
 
 @sio.on('exercise')
-def exercise(sid, data):
-    send_exercise(sio, data, sid)
+async def exercise(sid, data):
+    await send_exercise(sio, data, sid)
 
 
 @sio.on('exercise/feedback')
-def exercise_feedback(sid, data):
-    send_exercise_feedback(sio, data)
+async def exercise_feedback(sid, data):
+    await send_exercise_feedback(sio, data)
 
 
 @sio.on('exercise/reset')
-def exercise_reset(sid, data):
-    send_exercise_reset(sio, sid)
+async def exercise_reset(sid, data):
+    await send_exercise_reset(sio, sid)
 
 
 @sio.on('settings')
-def sharing_settings(sid, data):
-    send_settings(sio, data, sid)
+async def sharing_settings(sid, data):
+    await send_settings(sio, data, sid)
 
 
 @sio.on('room/rejoin')
-def room_rejoin(sid, data):
-    rejoin(sio, sid, data, commmand='rejoin')
+async def room_rejoin(sid, data):
+    await rejoin(sio, sid, data, command='rejoin')
 
 
 @sio.on('room/rehost')
-def room_rehost(sid, data):
-    rejoin(sio, sid, data, commmand='rehost')
+async def room_rehost(sid, data):
+    await rejoin(sio, sid, data, command='rehost')
 
 
 @sio.on('room/close')
-def room_close(sid, data):
-    if not validate_data(sio, data, 'room_id'):
-        return
+async def room_close(sid, data):
+    await close_room(sio, data)
 
-    room_id = data.get('room_id')
-    room = Room.get_room_by_id(room_id)
 
-    for student in room.users:
-        if student.role == 'client':
-            sio.emit('room/closed', {'message': 'Room closed!'}, to=student.sid)
-
-    eventlet.sleep(2)
-    Room.delete_room(room_id)  # Delete all users in the room and room itself
-    # log
-    emit_log(sio, f'Room with id: {room_id} has been closed!')
+# JUST FOR TESTS
+@sio.on('room/log')
+async def room_data(sid, data):
+    await room_log(sio, sid, data)
 
 
 if __name__ == '__main__':
-    eventlet.wsgi.server(eventlet.listen(('', 5000)), app)
+    uvicorn.run(app, host='127.0.0.1', port=5000)
