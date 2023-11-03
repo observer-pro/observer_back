@@ -7,6 +7,8 @@ from models import Room, StatusEnum, User
 
 from .utils import emit_log, handle_bad_request, validate_data
 
+lock = asyncio.Lock()
+
 
 async def create_room(sio: socketio.AsyncServer, sid, data) -> None:
     """
@@ -16,14 +18,15 @@ async def create_room(sio: socketio.AsyncServer, sid, data) -> None:
         sid (str): The session ID of the user.
         data (dict): The data containing the host name.
     """
-    hostname = data.get('name', None)
-    user = User(sid, role='host', name=hostname)
-    room = Room(host=user)
-    room.add_user(user)
-    user.room = room.id
-    await sio.emit('room/update', data=room.get_room_data(), to=sid)
-    # log
-    await emit_log(sio, f'User {sid} created room (id: {room.id})')
+    async with lock:
+        hostname = data.get('name', None)
+        user = User(sid, role='host', name=hostname)
+        room = Room(host=user)
+        room.add_user(user)
+        user.room = room.id
+        await sio.emit('room/update', data=room.get_room_data(), to=sid)
+        # log
+        await emit_log(sio, f'User {sid} created room (id: {room.id})')
 
 
 async def join_to_room(sio: socketio.AsyncServer, sid: str, data: dict) -> None:
@@ -34,43 +37,44 @@ async def join_to_room(sio: socketio.AsyncServer, sid: str, data: dict) -> None:
         sid (str): The session ID of the user.
         data (dict): The data containing room_id.
     """
-    if not await validate_data(sio, data, 'room_id'):
-        return
+    async with lock:
+        if not await validate_data(sio, data, 'room_id'):
+            return
 
-    room_id = data.get('room_id')
-    room = Room.get_room_by_id(room_id)
+        room_id = data.get('room_id')
+        room = Room.get_room_by_id(room_id)
 
-    username = data.get('name', None)
-    if not username:
-        username = 'Guest ' + str(randint(1, 10000))
+        username = data.get('name', None)
+        if not username:
+            username = 'Guest ' + str(randint(1, 10000))
 
-    user = User.get_user_by_sid(sid)
-    if user and user.room is not None:
-        await handle_bad_request(sio, f'User already in room (id: {user.room})')
-        return
+        user = User.get_user_by_sid(sid)
+        if user and user.room is not None:
+            await handle_bad_request(sio, f'User already in room (id: {user.room})')
+            return
 
-    user = User(sid, role='client', name=username, room_id=room_id)
-    room.add_user(user)
+        user = User(sid, role='client', name=username, room_id=room_id)
+        room.add_user(user)
 
-    # Message to student
-    await sio.emit('room/join', data={'user_id': user.id, 'room_id': room_id}, to=sid)
+        # Message to student
+        await sio.emit('room/join', data={'user_id': user.id, 'room_id': room_id}, to=sid)
 
-    # If exercise exists, send it to student
-    if room.exercise:
-        await sio.emit('exercise', data={'content': room.exercise}, to=sid)
+        # If exercise exists, send it to student
+        if room.exercise:
+            await sio.emit('exercise', data={'content': room.exercise}, to=sid)
+            # log
+            await emit_log(sio, f'The exercise was sent to the student (id: {user.id})!')
+
+        # If settings exists, send it to student
+        if room.settings:
+            await sio.emit('settings', data={'files_to_ignore': room.settings}, to=sid)
+            # log
+            await emit_log(sio, f'The settings were sent to the student (id: {user.id})!')
+
+        # Update data for teacher
+        await sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
         # log
-        await emit_log(sio, f'The exercise was sent to the student (id: {user.id})!')
-
-    # If settings exists, send it to student
-    if room.settings:
-        await sio.emit('settings', data={'files_to_ignore': room.settings}, to=sid)
-        # log
-        await emit_log(sio, f'The settings were sent to the student (id: {user.id})!')
-
-    # Update data for teacher
-    await sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
-    # log
-    await emit_log(sio, f'User {user.id} has joined the Room with id: {room_id}')
+        await emit_log(sio, f'User {user.id} has joined the Room with id: {room_id}')
 
 
 async def rejoin(sio: socketio.AsyncServer, sid: str, data: dict, command: str) -> None:
