@@ -1,9 +1,9 @@
 import socketio
 import uvicorn
 
-from events.exercise import send_exercise, send_exercise_feedback, send_exercise_reset
-from events.message import send_message
-from events.room import (
+from .events.exercise import send_exercise, send_exercise_feedback, send_exercise_reset
+from .events.message import send_message
+from .events.room import (
     close_room,
     create_room,
     create_test_room,
@@ -13,9 +13,9 @@ from events.room import (
     rejoin,
     room_log,
 )
-from events.settings import send_settings
-from events.sharing import send_sharing_code, send_sharing_status, send_signal
-from events.utils import emit_log
+from .events.settings import send_settings
+from .events.sharing import send_sharing_code, send_sharing_status, send_signal
+from .events.utils import emit_log
 
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 app = socketio.ASGIApp(sio)
@@ -125,4 +125,4 @@ async def room_data(sid, data):
 
 
 if __name__ == '__main__':
-    uvicorn.run(app, host='127.0.0.1', port=5555)
+    uvicorn.run(app, host='127.0.0.1', port=5000)

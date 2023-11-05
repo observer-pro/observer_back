@@ -2,11 +2,11 @@ import logging
 
 import socketio
 
-from models import Room
+from src.models import Room
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler('../log.log')
+file_handler = logging.FileHandler('../../log.log')
 file_handler.setLevel(logging.ERROR)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(formatter)

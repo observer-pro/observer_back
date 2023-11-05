@@ -1,6 +1,6 @@
 import socketio
 
-from models import Room, User
+from src.models import Room, User
 
 from .utils import emit_log, handle_bad_request, validate_data
 
