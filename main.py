@@ -1,5 +1,3 @@
-import asyncio
-
 import socketio
 import uvicorn
 
@@ -21,15 +19,13 @@ from events.utils import emit_log
 
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 app = socketio.ASGIApp(sio)
-lock = asyncio.Lock()
 
 
 @sio.event
 async def connect(sid, data):
     await create_test_room(sio, sid)
     # log
-    async with lock:
-        await emit_log(sio, f'User {sid} connected')
+    await emit_log(sio, f'User {sid} connected')
 
 
 @sio.event

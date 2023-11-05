@@ -13,15 +13,15 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 
-async def validate_data(sio: socketio.AsyncServer, data, *keys) -> bool:
+async def validate_data(sio: socketio.AsyncServer, data: dict, *keys) -> bool:
     """
     Validate incoming data
     Args:
-        sio: SocketIO server
-        data: JSON object
-        *keys: list of keys
+        sio (socketio.AsyncServer): The Socket.IO server instance.
+        data (dict): JSON object
+        *keys: list of keys to check
     Returns:
-        True if data is valid
+        True if keys are present in data and are of correct type.
     """
     if not isinstance(data, dict):
         await handle_bad_request(sio, 'Data should be a JSON object')
