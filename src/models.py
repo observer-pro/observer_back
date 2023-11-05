@@ -17,7 +17,7 @@ class Room:
         type(self).rooms[self.id] = self
 
     def __repr__(self):
-        return f'{type(self).__name__} {self.id}, users: {self.users}'
+        return f'<{type(self).__name__} {self.id}, users count: {len(self.users)}>'
 
     def add_user(self, user: 'User'):
         self.users.append(user)
@@ -87,20 +87,24 @@ class SignalEnum(Enum):
     IN_PROGRESS = 'IN_PROGRESS'
     HELP = 'HELP'
     DONE = 'DONE'
+    ACCEPTED = 'ACCEPTED'
 
 
 class User:
     id = 100
     users = {}
 
-    def __init__(self, sid, name=None, room_id=None, role='client', signal=SignalEnum.NONE, status=StatusEnum.ONLINE):
+    def __init__(
+            self, sid, name=None, room_id=None, role='client', signal=SignalEnum.NONE, status=StatusEnum.ONLINE
+    ):
         self.id: int = type(self).id
         self.sid: str = sid
         self.room: int = room_id
         self.name: str = name
         self.role: str = role
         self.status: StatusEnum = status
-        self.signal: SignalEnum = signal
+        self.signal: SignalEnum = signal  # deprecated from the v1.1.0
+        self.steps: dict[str: SignalEnum] = {}
         self.messages: list[Message] = []
         type(self).id += 1
         type(self).users[self.sid] = self

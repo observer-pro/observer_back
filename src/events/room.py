@@ -202,18 +202,20 @@ async def create_test_room(sio: socketio.AsyncServer, sid) -> None:
 
 
 # JUST FOR TESTS
-async def room_log(sio: socketio.AsyncServer, sid: str, data: dict) -> None:
+async def room_log(sio: socketio.AsyncServer, sid: str) -> None:
     """
     Send room log.
     Args:
         sio (socketio.AsyncServer): The socketio server instance.
         sid (str): The session ID of the user.
-        data (dict): The data containing 'room_id'.
     """
-    if not await validate_data(sio, data, 'room_id'):
-        return
+    rooms_data = {
+        'total_rooms_count': len(Room.rooms),
+        'rooms': [
+            {
+                'room_id': room.id, 'users_count': len(room.users), 'host_id': room.host.id
+            } for room in Room.rooms
+        ]
+    }
 
-    room_id = data.get('room_id', None)
-    room = Room.get_room_by_id(room_id)
-
-    await sio.emit('room/log', data=room.get_room_data(), to=sid)
+    await sio.emit('room/log', data=rooms_data, to=sid)

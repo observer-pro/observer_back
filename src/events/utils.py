@@ -64,3 +64,17 @@ async def handle_bad_request(sio: socketio.AsyncServer, message: str) -> None:
     """
     await sio.emit('error', data={'message': f'400 BAD REQUEST. {message}'})
     logger.error(f'Bad request occurred: {message}')
+
+
+async def deprecated(sio: socketio.AsyncServer, event: str, alternative: str = None) -> None:
+    """
+    Handle deprecated event by emitting an error event.
+    Args:
+        sio (socketio.AsyncServer): The Socket.IO server instance.
+        event (str): The deprecated event name.
+        alternative (str): An alternative event to use.
+    """
+    deprecated_message = f'The event "{event}" is deprecated and will be removed in future releases.'
+    if alternative:
+        deprecated_message += f' Use the event "{alternative}" instead.'
+    await sio.emit('error', data={'message': deprecated_message})

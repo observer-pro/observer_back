@@ -1,7 +1,7 @@
 import socketio
 import uvicorn
 
-from .events.exercise import send_exercise, send_exercise_feedback, send_exercise_reset
+from .events.exercise import send_exercise, send_exercise_feedback, send_exercise_reset, send_steps_from_host
 from .events.message import send_message
 from .events.room import (
     close_room,
@@ -98,6 +98,11 @@ async def exercise_reset(sid, data):
     await send_exercise_reset(sio, sid)
 
 
+@sio.on('steps/all')
+async def steps_all(sid, data):
+    await send_steps_from_host(sio, data, sid)
+
+
 @sio.on('settings')
 async def sharing_settings(sid, data):
     await send_settings(sio, data, sid)
@@ -121,7 +126,7 @@ async def room_close(sid, data):
 # JUST FOR TESTS
 @sio.on('room/log')
 async def room_data(sid, data):
-    await room_log(sio, sid, data)
+    await room_log(sio, sid)
 
 
 if __name__ == '__main__':
