@@ -98,24 +98,17 @@ async def send_steps_from_host(sio: AsyncServer, sid: str, data: list[dict[str, 
     await emit_log(sio, f'The steps were sent to all students in the room {room_id}!')
 
 
-async def send_steps_from_student(sio: AsyncServer, sid: str, data: dict[str, int | dict[str, str]]) -> None:
+async def send_steps_from_student(sio: AsyncServer, sid: str, data: dict[str, str]) -> None:
     """
     Sends steps from the student to the host of the room.
     """
-    if not await validate_data(sio, data, 'user_id'):
-        return
     user = User.get_user_by_sid(sid)
     room_id = user.room
     room = Room.get_room_by_id(room_id)
 
-    steps = data.get('steps')
-    if not steps:
-        await handle_bad_request(sio, 'No steps from the student were given!')
-        return
+    user.steps = data
 
-    user.steps = {'steps': steps}
-
-    await sio.emit('steps/status', data=data, to=room.host.sid)
+    await sio.emit('steps/status', data={'user_id': user.id, 'steps': data}, to=room.host.sid)
     # log
     await emit_log(
         sio, f'The steps were sent from the student (id: {user.id}) to the host of the room {room_id}!'

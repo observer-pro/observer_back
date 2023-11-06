@@ -215,12 +215,13 @@ async def room_log(sio: AsyncServer, sid: str) -> None:
         sio (AsyncServer): The socketio server instance.
         sid (str): The session ID of the user.
     """
+    rooms = [Room.get_room_by_id(room) for room in Room.rooms]
     rooms_data = {
         'total_rooms_count': len(Room.rooms),
         'rooms': [
             {
                 'room_id': room.id, 'users_count': len(room.users), 'host_id': room.host.id
-            } for room in Room.rooms
+            } for room in rooms
         ]
     }
 
