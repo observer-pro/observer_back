@@ -11,8 +11,9 @@ class Room:
         self.id: int = type(self).id
         self.users: list[User] = []  # all clients include owner
         self.host: User = host
-        self.exercise: str = ''
+        self.exercise: str = ''  # deprecated from the v1.1.0
         self.settings: str = ''
+        self.steps: list[dict[str, str]] = []  # TODO: Is the class Step (dict[str, str]) needed?
         type(self).id += 1
         type(self).rooms[self.id] = self
 
@@ -87,7 +88,6 @@ class SignalEnum(Enum):
     IN_PROGRESS = 'IN_PROGRESS'
     HELP = 'HELP'
     DONE = 'DONE'
-    ACCEPTED = 'ACCEPTED'
 
 
 class User:
@@ -104,7 +104,7 @@ class User:
         self.role: str = role
         self.status: StatusEnum = status
         self.signal: SignalEnum = signal  # deprecated from the v1.1.0
-        self.steps: dict[str: SignalEnum] = {}
+        self.steps: dict[str: str] = {}
         self.messages: list[Message] = []
         type(self).id += 1
         type(self).users[self.sid] = self

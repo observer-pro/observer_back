@@ -1,18 +1,18 @@
 import asyncio
 from random import randint
 
-import socketio
+from socketio import AsyncServer
 
 from src.models import Room, StatusEnum, User
 
 from .utils import emit_log, handle_bad_request, validate_data
 
 
-async def create_room(sio: socketio.AsyncServer, sid, data) -> None:
+async def create_room(sio: AsyncServer, sid, data) -> None:
     """
     Create a room.
     Args:
-        sio (socketio.AsyncServer): The socketio server instance.
+        sio (AsyncServer): The socketio server instance.
         sid (str): The session ID of the user.
         data (dict): The data containing the host name.
     """
@@ -26,11 +26,11 @@ async def create_room(sio: socketio.AsyncServer, sid, data) -> None:
     await emit_log(sio, f'User {sid} created room (id: {room.id})')
 
 
-async def join_to_room(sio: socketio.AsyncServer, sid: str, data: dict) -> None:
+async def join_to_room(sio: AsyncServer, sid: str, data: dict) -> None:
     """
     Join a user to a room.
     Args:
-        sio (socketio.AsyncServer): The socketio server instance.
+        sio (AsyncServer): The socketio server instance.
         sid (str): The session ID of the user.
         data (dict): The data containing room_id.
     """
@@ -55,11 +55,17 @@ async def join_to_room(sio: socketio.AsyncServer, sid: str, data: dict) -> None:
     # Message to student
     await sio.emit('room/join', data={'user_id': user.id, 'room_id': room_id}, to=sid)
 
-    # If exercise exists, send it to student
+    # START / Deprecated from the v1.1.0
     if room.exercise:
         await sio.emit('exercise', data={'content': room.exercise}, to=sid)
         # log
         await emit_log(sio, f'The exercise was sent to the student (id: {user.id})!')
+    # END
+
+    if room.steps:
+        await sio.emit('steps/all', data=room.steps, to=sid)
+        # log
+        await emit_log(sio, f'The steps were sent to the student (id: {user.id})!')
 
     # If settings exists, send it to student
     if room.settings:
@@ -73,11 +79,11 @@ async def join_to_room(sio: socketio.AsyncServer, sid: str, data: dict) -> None:
     await emit_log(sio, f'User {user.id} has joined the Room with id: {room_id}')
 
 
-async def rejoin(sio: socketio.AsyncServer, sid: str, data: dict, command: str) -> None:
+async def rejoin(sio: AsyncServer, sid: str, data: dict, command: str) -> None:
     """
     Rejoin a user to a room (host or student).
     Args:
-        sio (socketio.AsyncServer): The socketio server instance.
+        sio (AsyncServer): The socketio server instance.
         sid (str): The session ID of the user.
         data (dict): The data containing room_id and user_id.
         command (str): The command to execute ('rejoin' or 'rehost').
@@ -106,7 +112,7 @@ async def rejoin(sio: socketio.AsyncServer, sid: str, data: dict, command: str) 
         # Messages to students
         for student in room.users:
             if student.role == 'client':
-                await sio.emit('message', {'message': 'STATUS: The teacher is back!'}, to=student.sid)
+                await sio.emit('message', {'message': 'The teacher has reconnected!'}, to=student.sid)
         # log
         await emit_log(sio, f'Host {user.name} with id {user_id} reconnected!')
 
@@ -114,11 +120,11 @@ async def rejoin(sio: socketio.AsyncServer, sid: str, data: dict, command: str) 
     await sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
 
 
-async def exit_from_room(sio: socketio.AsyncServer, sid: str, data: dict) -> None:
+async def exit_from_room(sio: AsyncServer, sid: str, data: dict) -> None:
     """
     Leave a room.
     Args:
-        sio (socketio.AsyncServer): The socketio server instance.
+        sio (AsyncServer): The socketio server instance.
         sid (str): The session ID of the user.
         data (dict): The data containing room_id.
     """
@@ -142,11 +148,11 @@ async def exit_from_room(sio: socketio.AsyncServer, sid: str, data: dict) -> Non
     await emit_log(sio, f'User {user.id} has left the Room with id: {room_id}')
 
 
-async def close_room(sio: socketio.AsyncServer, data: dict) -> None:
+async def close_room(sio: AsyncServer, data: dict) -> None:
     """
     Close a room by host.
     Args:
-        sio (socketio.AsyncServer): The socketio server instance.
+        sio (AsyncServer): The socketio server instance.
         data (dict): The data containing 'room_id'.
     """
     if not await validate_data(sio, data, 'room_id'):
@@ -165,11 +171,11 @@ async def close_room(sio: socketio.AsyncServer, data: dict) -> None:
     await emit_log(sio, f'Room with id: {room_id} has been closed!')
 
 
-async def disconnect_user(sio: socketio.AsyncServer, sid: str) -> None:
+async def disconnect_user(sio: AsyncServer, sid: str) -> None:
     """
     Catch user disconnect
     Args:
-        sio (socketio.AsyncServer): The Socket.IO server instance.
+        sio (AsyncServer): The Socket.IO server instance.
         sid (str): The session ID of the user.
     """
     user = User.get_user_by_sid(sid)
@@ -190,7 +196,7 @@ async def disconnect_user(sio: socketio.AsyncServer, sid: str) -> None:
 
 
 # JUST FOR TESTS
-async def create_test_room(sio: socketio.AsyncServer, sid) -> None:
+async def create_test_room(sio: AsyncServer, sid) -> None:
     """ Create room for tests """
     room = Room.get_room_by_id(1000)
     if not room:
@@ -202,11 +208,11 @@ async def create_test_room(sio: socketio.AsyncServer, sid) -> None:
 
 
 # JUST FOR TESTS
-async def room_log(sio: socketio.AsyncServer, sid: str) -> None:
+async def room_log(sio: AsyncServer, sid: str) -> None:
     """
     Send room log.
     Args:
-        sio (socketio.AsyncServer): The socketio server instance.
+        sio (AsyncServer): The socketio server instance.
         sid (str): The session ID of the user.
     """
     rooms_data = {

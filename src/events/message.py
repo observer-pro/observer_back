@@ -1,15 +1,15 @@
-import socketio
+from socketio import AsyncServer
 
 from src.models import Message, Room, User
 
 from .utils import emit_log, handle_bad_request, validate_data
 
 
-async def send_message(sio: socketio.AsyncServer, sender_sid: str, data: dict, to: str) -> None:
+async def send_message(sio: AsyncServer, sender_sid: str, data: dict, to: str) -> None:
     """
     Sends a message from the host to the specified user in a room and vice versa.
     Args:
-        sio (socketio.AsyncServer): The Socket.IO server instance.
+        sio (AsyncServer): The Socket.IO server instance.
         sender_sid (str): The session ID of the user.
         data (dict): The data containing the 'room_id' and 'user_id' and 'content'
         to (str):

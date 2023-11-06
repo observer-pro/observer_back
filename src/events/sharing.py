@@ -1,15 +1,15 @@
-import socketio
+from socketio import AsyncServer
 
 from src.models import Room, SignalEnum, User
 
 from .utils import emit_log, handle_bad_request, validate_data
 
 
-async def send_sharing_status(sio: socketio.AsyncServer, data: dict, command: str) -> None:
+async def send_sharing_status(sio: AsyncServer, data: dict, command: str) -> None:
     """
     Send sharing status to a user in a specific room.
     Args:
-        sio (socketio.AsyncServer): The Socket.IO server instance.
+        sio (AsyncServer): The Socket.IO server instance.
         data (dict): The data containing the room ID and user ID.
         command (str): The command to send (start or end).
     """
@@ -30,11 +30,12 @@ async def send_sharing_status(sio: socketio.AsyncServer, data: dict, command: st
     await emit_log(sio, f"Host send '{command}' to the user: {receiver_id}")
 
 
-async def send_sharing_code(sio: socketio.AsyncServer, data: dict, command: str) -> None:
+async def send_sharing_code(sio: AsyncServer, sid: str, data: dict, command: str) -> None:
     """
     Send sharing code to the host in the specified room.
     Args:
-        sio (socketio.AsyncServer): The Socket.IO server instance.
+        sio (AsyncServer): The Socket.IO server instance.
+        sid (str): The session ID of the user.
         data (dict): The data to be sent.
         command (str): The command to be sent ('code_send' or 'code_update').
     """
@@ -43,17 +44,19 @@ async def send_sharing_code(sio: socketio.AsyncServer, data: dict, command: str)
 
     room_id = data.get('room_id')
     room = Room.get_room_by_id(room_id)
+    user = User.get_user_by_sid(sid)
+    data.update({'user_id': user.id})
 
     await sio.emit(f'sharing/{command}', data=data, to=room.host.sid)
     # log
     await emit_log(sio, f'sharing/{command} to host with id: {room.host.id}')
 
 
-async def send_signal(sio: socketio.AsyncServer, sid: str, data: dict) -> None:
+async def send_signal(sio: AsyncServer, sid: str, data: dict) -> None:
     """
     Send signal to the teacher.
     Args:
-        sio (socketio.AsyncServer): The Socket.IO server instance.
+        sio (AsyncServer): The Socket.IO server instance.
         sid (str): The session ID of the user.
         data (dict): The data containing the user ID and one of SignalEnum values.
     """

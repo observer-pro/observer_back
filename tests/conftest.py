@@ -1,83 +1,95 @@
-import pytest
-import socketio
+import pytest_asyncio
+from socketio import AsyncClient
 
 
-@pytest.fixture(scope='session')
-def host_client():
-    client = socketio.Client()
-    client.connect('http://localhost:5000')
+@pytest_asyncio.fixture(scope='function')
+async def host_client():
+    client = AsyncClient()
+    await client.connect('http://127.0.0.1:5000')
     yield client
-    client.disconnect()
+    await client.disconnect()
 
 
-@pytest.fixture
-def host(host_client):
+@pytest_asyncio.fixture
+async def host(host_client):
     return host_client
 
 
-@pytest.fixture(scope='session')
-def user_client():
-    client = socketio.Client()
-    client.connect('http://localhost:5000')
+@pytest_asyncio.fixture(scope='function')
+async def user_client():
+    client = AsyncClient()
+    await client.connect('http://127.0.0.1:5000')
     yield client
-    client.disconnect()
+    await client.disconnect()
 
 
-@pytest.fixture
-def client(user_client):
+@pytest_asyncio.fixture
+async def client(user_client):
     return user_client
 
 
-@pytest.fixture
-def room_update(host):
+#
+@pytest_asyncio.fixture
+async def room_update(host: AsyncClient):
     response = {}
 
     @host.on('room/update')
-    def room_data(data):
+    async def room_data(data):
         response.update(data)
 
     return response
 
 
-@pytest.fixture
-def room_join(client):
+@pytest_asyncio.fixture
+async def room_join(client: AsyncClient):
     response = {}
 
     @client.on('room/join')
-    def room_data(data):
+    async def room_data(data):
         response.update(data)
 
     return response
 
 
-@pytest.fixture
-def message_to_client(client):
+@pytest_asyncio.fixture
+async def signal(client: AsyncClient):
+    response = {}
+
+    @client.on('room/join')
+    async def room_data(data):
+        response.update(data)
+
+    return response
+
+
+@pytest_asyncio.fixture
+async def message_to_client(client: AsyncClient):
     response = {}
 
     @client.on('message/to_client')
-    def room_data(data):
+    async def room_data(data):
         response.update(data)
 
     return response
 
 
-@pytest.fixture
-def message_to_mentor(host):
+@pytest_asyncio.fixture
+async def message_to_mentor(host: AsyncClient):
     response = {}
 
     @host.on('message/to_mentor')
-    def room_data(data):
+    async def room_data(data):
         response.update(data)
 
     return response
 
 
-@pytest.fixture
-def error(host):
+@pytest_asyncio.fixture
+async def error(host: AsyncClient):
     response = {}
 
     @host.on('error')
-    def room_data(data):
+    async def room_data(data):
         response.update(data)
 
     return response

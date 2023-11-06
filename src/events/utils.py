@@ -1,6 +1,6 @@
 import logging
 
-import socketio
+from socketio import AsyncServer
 
 from src.models import Room
 
@@ -13,11 +13,11 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 
-async def validate_data(sio: socketio.AsyncServer, data: dict, *keys) -> bool:
+async def validate_data(sio: AsyncServer, data: dict, *keys) -> bool:
     """
     Validate incoming data
     Args:
-        sio (socketio.AsyncServer): The Socket.IO server instance.
+        sio (AsyncServer): The Socket.IO server instance.
         data (dict): JSON object
         *keys: list of keys to check
     Returns:
@@ -45,32 +45,32 @@ async def validate_data(sio: socketio.AsyncServer, data: dict, *keys) -> bool:
     return True
 
 
-async def emit_log(sio: socketio.AsyncServer, message: str) -> None:
+async def emit_log(sio: AsyncServer, message: str) -> None:
     """
     Emit a log message.
     Args:
-        sio (socketio.AsyncServer): The Socket.IO server instance.
+        sio (AsyncServer): The Socket.IO server instance.
         message (str): The log message to emit.
     """
     await sio.emit('log', data={'message': message})
 
 
-async def handle_bad_request(sio: socketio.AsyncServer, message: str) -> None:
+async def handle_bad_request(sio: AsyncServer, message: str) -> None:
     """
     Handle bad request by emitting an error event and logging the error message.
     Args:
-        sio (socketio.AsyncServer): The Socket.IO server instance.
+        sio (AsyncServer): The Socket.IO server instance.
         message (str): The error message.
     """
     await sio.emit('error', data={'message': f'400 BAD REQUEST. {message}'})
     logger.error(f'Bad request occurred: {message}')
 
 
-async def deprecated(sio: socketio.AsyncServer, event: str, alternative: str = None) -> None:
+async def deprecated(sio: AsyncServer, event: str, alternative: str = None) -> None:
     """
     Handle deprecated event by emitting an error event.
     Args:
-        sio (socketio.AsyncServer): The Socket.IO server instance.
+        sio (AsyncServer): The Socket.IO server instance.
         event (str): The deprecated event name.
         alternative (str): An alternative event to use.
     """

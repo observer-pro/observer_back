@@ -1,17 +1,17 @@
-import socketio
+from socketio import AsyncServer
 
 from src.models import Room, User
 
 from .utils import emit_log, validate_data
 
 
-async def send_settings(sio: socketio.AsyncServer, data: dict, sid: str) -> None:
+async def send_settings(sio: AsyncServer, sid: str, data: dict) -> None:
     """
     Sends settings to all students in the room.
     Args:
-        sio (socketio.AsyncServer): The socketio server instance.
-        data (dict): The data containing the settings.
+        sio (AsyncServer): The socketio server instance.
         sid (str): The session ID of the user.
+        data (dict): The data containing the settings.
     """
     if not await validate_data(sio, data, 'files_to_ignore'):
         return

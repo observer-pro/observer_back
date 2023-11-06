@@ -1,9 +1,15 @@
 import socketio
 import uvicorn
 
-from .events.exercise import send_exercise, send_exercise_feedback, send_exercise_reset, send_steps_from_host
-from .events.message import send_message
-from .events.room import (
+from src.events.exercise import (
+    send_exercise,
+    send_exercise_feedback,
+    send_exercise_reset,
+    send_steps_from_host,
+    send_steps_from_student,
+)
+from src.events.message import send_message
+from src.events.room import (
     close_room,
     create_room,
     create_test_room,
@@ -13,9 +19,9 @@ from .events.room import (
     rejoin,
     room_log,
 )
-from .events.settings import send_settings
-from .events.sharing import send_sharing_code, send_sharing_status, send_signal
-from .events.utils import emit_log
+from src.events.settings import send_settings
+from src.events.sharing import send_sharing_code, send_sharing_status, send_signal
+from src.events.utils import emit_log
 
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 app = socketio.ASGIApp(sio)
@@ -75,17 +81,17 @@ async def sharing_end(sid, data):
 
 @sio.on('sharing/code_send')
 async def sharing_code_send(sid, data):
-    await send_sharing_code(sio, data, command='code_send')
+    await send_sharing_code(sio, sid, data, command='code_send')
 
 
 @sio.on('sharing/code_update')
 async def sharing_code_update(sid, data):
-    await send_sharing_code(sio, data, command='code_update')
+    await send_sharing_code(sio, sid, data, command='code_update')
 
 
 @sio.on('exercise')
 async def exercise(sid, data):
-    await send_exercise(sio, data, sid)
+    await send_exercise(sio, sid, data)
 
 
 @sio.on('exercise/feedback')
@@ -100,12 +106,17 @@ async def exercise_reset(sid, data):
 
 @sio.on('steps/all')
 async def steps_all(sid, data):
-    await send_steps_from_host(sio, data, sid)
+    await send_steps_from_host(sio, sid, data)
+
+
+@sio.on('steps/status')
+async def steps_status(sid, data):
+    await send_steps_from_student(sio, sid, data)
 
 
 @sio.on('settings')
 async def sharing_settings(sid, data):
-    await send_settings(sio, data, sid)
+    await send_settings(sio, sid, data)
 
 
 @sio.on('room/rejoin')
