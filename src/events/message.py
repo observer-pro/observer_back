@@ -16,14 +16,12 @@ async def send_message(sio: AsyncServer, sender_sid: str, data: dict, to: str) -
             'to_client' - from host to user
             'to_mentor' - from user to host
     """
-    if not await validate_data(sio, data, 'room_id', 'content'):
+    if not await validate_data(sio, data, 'room_id'):
         return
 
     room_id = data.get('room_id')
     room = Room.get_room_by_id(room_id)
-    content = data.get('content', None)
-    if not content:
-        content = ''
+    content = data.get('content', '')
 
     if to == 'to_client':
         receiver_id = data.get('user_id', None)

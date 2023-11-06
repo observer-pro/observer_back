@@ -31,12 +31,10 @@ async def validate_data(sio: AsyncServer, data: dict, *keys) -> bool:
         if key not in data:
             await handle_bad_request(sio, f'{key} is not present in data')
             return False
-        if key in ('content', 'files_to_ignore'):
-            return True
         if key == 'accepted' and not isinstance(data[key], bool):
             await handle_bad_request(sio, f'{key} should be a boolean')
             return False
-        if not isinstance(data[key], int):
+        if key in ('room_id', 'user_id') and not isinstance(data[key], int):
             await handle_bad_request(sio, f'{key} should be an integer')
             return False
         if key == 'room_id' and not Room.get_room_by_id(data[key]):

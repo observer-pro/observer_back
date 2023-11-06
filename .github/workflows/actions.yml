@@ -51,13 +51,13 @@ jobs:
           password: ${{ secrets.STAGE_PASSWORD }}
           script: |
             # Check and restart observer.service if not active
-            if ! sudo systemctl is-active --quiet observer.service; then
+            if ! sudo systemctl is-active observer.service; then
               echo "Observer service is not active. Restarting..."
               sudo systemctl restart observer.service
             fi
             
             # Check and restart Nginx if not active
-            if ! sudo systemctl is-active --quiet nginx; then
+            if ! sudo systemctl is-active nginx; then
               echo "Nginx is not active. Restarting..."
               sudo systemctl restart nginx
             fi

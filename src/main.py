@@ -5,6 +5,7 @@ from src.events.exercise import (
     send_exercise,
     send_exercise_feedback,
     send_exercise_reset,
+    send_solution_from_ai,
     send_steps_from_host,
     send_steps_from_student,
 )
@@ -89,6 +90,7 @@ async def sharing_code_update(sid, data):
     await send_sharing_code(sio, sid, data, command='code_update')
 
 
+# deprecated from the v1.1.0
 @sio.on('exercise')
 async def exercise(sid, data):
     await send_exercise(sio, sid, data)
@@ -102,6 +104,11 @@ async def exercise_feedback(sid, data):
 @sio.on('exercise/reset')
 async def exercise_reset(sid, data):
     await send_exercise_reset(sio, sid)
+
+
+@sio.on('solution/ai')
+async def solution_ai(sid, data):
+    await send_solution_from_ai(sio, sid, data)
 
 
 @sio.on('steps/all')

@@ -8,7 +8,7 @@ from src.models import Room, StatusEnum, User
 from .utils import emit_log, handle_bad_request, validate_data
 
 
-async def create_room(sio: AsyncServer, sid, data) -> None:
+async def create_room(sio: AsyncServer, sid: str, data: dict) -> None:
     """
     Create a room.
     Args:
@@ -16,6 +16,8 @@ async def create_room(sio: AsyncServer, sid, data) -> None:
         sid (str): The session ID of the user.
         data (dict): The data containing the host name.
     """
+    if not await validate_data(sio, data):
+        return
     hostname = data.get('name', None)
     user = User(sid, role='host', name=hostname)
     room = Room(host=user)
@@ -39,10 +41,7 @@ async def join_to_room(sio: AsyncServer, sid: str, data: dict) -> None:
 
     room_id = data.get('room_id')
     room = Room.get_room_by_id(room_id)
-
-    username = data.get('name', None)
-    if not username:
-        username = 'Guest ' + str(randint(1, 10000))
+    username = data.get('name', 'Guest ' + str(randint(1, 10000)))
 
     user = User.get_user_by_sid(sid)
     if user and user.room is not None:

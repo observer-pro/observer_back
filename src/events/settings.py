@@ -13,7 +13,7 @@ async def send_settings(sio: AsyncServer, sid: str, data: dict) -> None:
         sid (str): The session ID of the user.
         data (dict): The data containing the settings.
     """
-    if not await validate_data(sio, data, 'files_to_ignore'):
+    if not await validate_data(sio, data):
         return
 
     files_to_ignore = data.get('files_to_ignore', '')

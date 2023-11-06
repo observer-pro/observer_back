@@ -1,5 +1,6 @@
 from socketio import AsyncServer
 
+from src.classes.openai import AIClient
 from src.models import Room, User
 
 from .utils import deprecated, emit_log, handle_bad_request, validate_data
@@ -14,7 +15,7 @@ async def send_exercise(sio: AsyncServer, sid: str, data: dict) -> None:
         sid (str): The session ID of the user.
         data (dict): The data containing the exercise content.
     """
-    if not await validate_data(sio, data, 'content'):
+    if not await validate_data(sio, data):
         return
 
     content = data.get('content', '')
@@ -81,6 +82,10 @@ async def send_steps_from_host(sio: AsyncServer, sid: str, data: list[dict[str, 
         sid (str): The session ID of the user.
         data (list[dict]): The data containing the steps.
     """
+    if not isinstance(data, list):
+        await handle_bad_request(sio, 'Data should be a JSON array')
+        return
+
     cleaned_data = [
         item for item in data if "content" in item and item["content"] is not None and item["content"].strip() != ""
     ]
@@ -101,7 +106,14 @@ async def send_steps_from_host(sio: AsyncServer, sid: str, data: list[dict[str, 
 async def send_steps_from_student(sio: AsyncServer, sid: str, data: dict[str, str]) -> None:
     """
     Sends steps from the student to the host of the room.
+    Args:
+        sio (AsyncServer): The socketio server instance.
+        sid (str): The session ID of the user.
+        data (dict): The data containing the statuses of the tasks.
     """
+    if not await validate_data(sio, data):
+        return
+
     user = User.get_user_by_sid(sid)
     room_id = user.room
     room = Room.get_room_by_id(room_id)
@@ -113,3 +125,27 @@ async def send_steps_from_student(sio: AsyncServer, sid: str, data: dict[str, st
     await emit_log(
         sio, f'The steps were sent from the student (id: {user.id}) to the host of the room {room_id}!'
     )
+
+
+async def send_solution_from_ai(sio: AsyncServer, sid: str, data: dict[str, str]) -> None:
+    """
+    Sends the solution from the AI to the student with the given sid.
+    Args:
+        sio (AsyncServer): The socketio server instance.
+        sid (str): The session ID of the user.
+        data (dict): The data containing the question and code.
+    """
+    if not await validate_data(sio, data):
+        return
+    task = data.get('content')
+    code = data.get('code')
+    if not task or not code:
+        await handle_bad_request(sio, 'Task content and code are required!')
+        return
+
+    ai_client = AIClient()
+    ai_response = await ai_client.get_explanation(task, code)
+
+    await sio.emit('solution/ai', data={'content': ai_response}, to=sid)
+    # log
+    await emit_log(sio, f'The solution was sent from the AI to the student with id: {sid}!')
