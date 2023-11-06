@@ -184,12 +184,12 @@ def sharing_end(sid, data):
 
 @sio.on('sharing/code_send')
 def sharing_code_send(sid, data):
-    send_sharing_code(sio, data, command='code_send')
+    send_sharing_code(sio, sid, data, command='code_send')
 
 
 @sio.on('sharing/code_update')
 def sharing_code_update(sid, data):
-    send_sharing_code(sio, data, command='code_update')
+    send_sharing_code(sio, sid, data, command='code_update')
 
 
 @sio.on('exercise')

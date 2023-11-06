@@ -142,11 +142,12 @@ def send_sharing_status(sio: socketio.Server, data: dict, command: str) -> None:
     emit_log(sio, f"Host send '{command}' to the user: {receiver_id}")
 
 
-def send_sharing_code(sio: socketio.Server, data: dict, command: str) -> None:
+def send_sharing_code(sio: socketio.Server, sid: str, data: dict, command: str) -> None:
     """
     Send sharing code to the host in the specified room.
     Args:
         sio (socketio.Server): The Socket.IO server instance.
+        sid (str): The session ID of the user.
         data (dict): The data to be sent.
         command (str): The command to be sent (code_send or code_update).
     Returns:
@@ -157,6 +158,8 @@ def send_sharing_code(sio: socketio.Server, data: dict, command: str) -> None:
 
     room_id = data.get('room_id')
     room = Room.get_room_by_id(room_id)
+    user = User.get_user_by_sid(sid)
+    data.update({'user_id': user.id})
 
     sio.emit(f'sharing/{command}', data=data, to=room.host.sid)
     # log
