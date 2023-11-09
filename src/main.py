@@ -24,7 +24,7 @@ from src.events.settings import send_settings
 from src.events.sharing import send_sharing_code, send_sharing_status, send_signal
 from src.events.utils import emit_log
 
-sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
+sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*', ping_timeout=90)
 app = socketio.ASGIApp(sio)
 
 
