@@ -1,4 +1,5 @@
 import logging
+import re
 
 from socketio import AsyncServer
 
@@ -76,3 +77,32 @@ async def deprecated(sio: AsyncServer, event: str, alternative: str = None) -> N
     if alternative:
         deprecated_message += f' Use the event "{alternative}" instead.'
     await sio.emit('error', data={'message': deprecated_message})
+
+
+def parse_files_to_ignore(data: str) -> dict[str: list[str]]:
+    """
+    Parses a string with names and break lines to ignore and returns a dictionary
+    containing the names, directories, and extensions.
+    Args:
+        data (str): The string of file names, directories and extensions to ignore.
+    Returns:
+        dict: A dictionary containing the names, directories, and extensions.
+
+    """
+    pattern = re.compile(r'^[a-zA-Z0-9*./_\[\]\-$]+')
+    data = {i.strip() for i in data.split('\n') if '#' not in i}
+    names, directories, extensions = [], [], []
+
+    for name in data:
+        if not pattern.match(name):
+            continue
+        if name.count('/') > 1:
+            directories.append(name)
+        if name.startswith('/') or name.endswith('/'):
+            directories.append(name.replace('/', ''))
+        elif '*.' in name:
+            extensions.append(name.replace('*', ''))
+        else:
+            names.append(name)
+
+    return {"names": names, "directories": directories, "extensions": extensions}

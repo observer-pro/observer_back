@@ -12,7 +12,7 @@ class Room:
         self.users: list[User] = []  # all clients include owner
         self.host: User = host
         self.exercise: str = ''  # deprecated from the v1.1.0
-        self.settings: str = ''
+        self.settings: dict[str: list[str]] = {}
         self.steps: list[dict[str, str]] = []  # TODO: Is the class Step (dict[str, str]) needed?
         type(self).id += 1
         type(self).rooms[self.id] = self

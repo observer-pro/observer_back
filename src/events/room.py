@@ -54,12 +54,11 @@ async def join_to_room(sio: AsyncServer, sid: str, data: dict) -> None:
     # Message to student
     await sio.emit('room/join', data={'user_id': user.id, 'room_id': room_id}, to=sid)
 
-    # START / Deprecated from the v1.1.0
+    # Deprecated from v1.1.0
     if room.exercise:
         await sio.emit('exercise', data={'content': room.exercise}, to=sid)
         # log
         await emit_log(sio, f'The exercise was sent to the student (id: {user.id})!')
-    # END
 
     if room.steps:
         await sio.emit('steps/all', data=room.steps, to=sid)
@@ -68,7 +67,7 @@ async def join_to_room(sio: AsyncServer, sid: str, data: dict) -> None:
 
     # If settings exists, send it to student
     if room.settings:
-        await sio.emit('settings', data={'files_to_ignore': room.settings}, to=sid)
+        await sio.emit('settings', data=room.settings, to=sid)
         # log
         await emit_log(sio, f'The settings were sent to the student (id: {user.id})!')
 
