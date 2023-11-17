@@ -45,7 +45,7 @@ async def send_message(sio: AsyncServer, sender_sid: str, data: dict, to: str) -
     await sio.emit(
         f'message/{to}',
         data={
-            'user_id': receiver_id,
+            'user_id': receiver_id if to == 'to_client' else sender.id,
             'room_id': room_id,
             'content': content,
             'datetime': message.created_at,

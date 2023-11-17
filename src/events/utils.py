@@ -94,15 +94,13 @@ def parse_files_to_ignore(data: str) -> dict[str: list[str]]:
     names, directories, extensions = [], [], []
 
     for name in data:
-        if not pattern.match(name):
+        if not pattern.match(name) or name.count('/') > 1 or '*$' in name:
             continue
-        if name.count('/') > 1:
-            directories.append(name)
         if name.startswith('/') or name.endswith('/'):
-            directories.append(name.replace('/', ''))
+            directories.append(name.replace('*', '').replace('/', ''))
         elif '*.' in name:
-            extensions.append(name.replace('*', ''))
+            extensions.append(name.replace('*.', ''))
         else:
             names.append(name)
 
-    return {"names": names, "directories": directories, "extensions": extensions}
+    return {"names": names, "dirs": directories, "extensions": extensions}
