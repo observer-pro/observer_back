@@ -39,6 +39,8 @@ class AIClient:
             return str(e)
 
     async def get_explanation(self, task_text: str, user_solution_code: str) -> str:
+        print('Waiting for AI response!')
         prompt = self._build_prompt(task_text, user_solution_code)
         ai_response = await self._make_request(prompt)
+        print(f'AI response, first 100 symbols: {ai_response[:100]}')
         return ai_response
