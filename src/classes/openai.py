@@ -39,6 +39,8 @@ class AIClient:
             return str(e)
 
     async def get_explanation(self, task_text: str, user_solution_code: str) -> str:
+        print(f'OpenAI API key: {os.getenv("OPENAI_API_KEY")[:-10] + "*"*10}')
         prompt = self._build_prompt(task_text, user_solution_code)
         ai_response = await self._make_request(prompt)
+        print(f'ai_response: {ai_response}')
         return ai_response

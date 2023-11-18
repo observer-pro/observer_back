@@ -143,6 +143,8 @@ async def send_solution_from_ai(sio: AsyncServer, sid: str, data: dict[str, str]
         await handle_bad_request(sio, 'Task content and code are required!')
         return
 
+    await emit_log(sio, 'solution/ai data sent to AI')
+
     ai_client = AIClient()
     ai_response = await ai_client.get_explanation(task, code)
 
