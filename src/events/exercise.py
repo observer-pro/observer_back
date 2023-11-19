@@ -1,12 +1,12 @@
 from socketio import AsyncServer
 
-from src.classes.openai import AIClient
+from src.classes.openai import AlternateAIClient
 from src.models import Room, User
 
 from .utils import deprecated, emit_log, handle_bad_request, validate_data
 
 
-# deprecated from the v1.1.0
+# deprecated from v1.1.0
 async def send_exercise(sio: AsyncServer, sid: str, data: dict) -> None:
     """
     Sends an exercise to all students in the same room as the host with the given sid
@@ -32,6 +32,7 @@ async def send_exercise(sio: AsyncServer, sid: str, data: dict) -> None:
     await deprecated(sio, 'exercise', 'steps/all')
 
 
+# deprecated from v1.1.0
 async def send_exercise_feedback(sio: AsyncServer, data: dict) -> None:
     """
     Sends an exercise feedback to a user via socketio.
@@ -55,8 +56,10 @@ async def send_exercise_feedback(sio: AsyncServer, data: dict) -> None:
     await sio.emit('exercise/feedback', data={'accepted': accepted}, to=user.sid)
     # log
     await emit_log(sio, f'Feedback (accepted: {accepted}) was sent to the user with id: {user.id}')
+    await deprecated(sio, 'exercise/feedback')
 
 
+# deprecated from the v1.1.0
 async def send_exercise_reset(sio: AsyncServer, sid: str) -> None:
     """
     Sends an 'exercise/reset' event to all students in the same room as the host with the given sid
@@ -72,6 +75,7 @@ async def send_exercise_reset(sio: AsyncServer, sid: str) -> None:
             await sio.emit('exercise/reset', data={}, to=student.sid)
     # log
     await emit_log(sio, f'The exercise/reset was sent to all students in the room {room_id}!')
+    await deprecated(sio, 'exercise/reset')
 
 
 async def send_steps_from_host(sio: AsyncServer, sid: str, data: list[dict[str, str]]) -> None:
@@ -127,6 +131,10 @@ async def send_steps_from_student(sio: AsyncServer, sid: str, data: dict[str, st
     )
 
 
+async def send_table(sio: AsyncServer, sid: str, data: dict[str, str]) -> None:
+    return
+
+
 async def send_solution_from_ai(sio: AsyncServer, sid: str, data: dict[str, str]) -> None:
     """
     Sends the solution from the AI to the student with the given sid.
@@ -145,7 +153,7 @@ async def send_solution_from_ai(sio: AsyncServer, sid: str, data: dict[str, str]
 
     await emit_log(sio, 'solution/ai data sent to AI')
 
-    ai_client = AIClient()
+    ai_client = AlternateAIClient()
     ai_response: dict = await ai_client.get_explanation(task, code)
 
     if not ai_response['status']:
@@ -154,4 +162,4 @@ async def send_solution_from_ai(sio: AsyncServer, sid: str, data: dict[str, str]
 
     await sio.emit('solution/ai', data={'content': ai_response['content']}, to=sid)
     # log
-    await emit_log(sio, f'The solution was sent from the AI to the student with id: {sid}!')
+    await emit_log(sio, f'The AI solution was sent to the student with id: {sid}!')

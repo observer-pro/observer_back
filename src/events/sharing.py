@@ -2,7 +2,7 @@ from socketio import AsyncServer
 
 from src.models import Room, SignalEnum, User
 
-from .utils import emit_log, handle_bad_request, validate_data
+from .utils import deprecated, emit_log, handle_bad_request, validate_data
 
 
 async def send_sharing_status(sio: AsyncServer, data: dict, command: str) -> None:
@@ -52,6 +52,7 @@ async def send_sharing_code(sio: AsyncServer, sid: str, data: dict, command: str
     await emit_log(sio, f'sharing/{command} to host with id: {room.host.id}')
 
 
+# deprecated from v1.1.0
 async def send_signal(sio: AsyncServer, sid: str, data: dict) -> None:
     """
     Send signal to the teacher.
@@ -81,3 +82,4 @@ async def send_signal(sio: AsyncServer, sid: str, data: dict) -> None:
     await sio.emit('signal', data=data, to=room.host.sid)
     # log
     await emit_log(sio, f'The user {user.id} sent a [{signal_value}] signal to host with id {room.host.id}.')
+    await deprecated(sio, 'signal')

@@ -1,21 +1,18 @@
 import os
 from pathlib import Path
 
+import aiohttp
 from dotenv import load_dotenv
 from openai import APIConnectionError, APIStatusError, AsyncOpenAI, BadRequestError
 
 load_dotenv(Path(__file__).parent.parent.parent / '.env')
 
-client = AsyncOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    timeout=10,
-    max_retries=3
-)
+token = os.getenv("OPENAI_API_KEY")
 
 
-class AIClient:
+class BaseClient:
     """
-    Class for interacting with the OpenAI API
+    Base class for interacting with the OpenAI API
     """
 
     @staticmethod
@@ -25,10 +22,22 @@ class AIClient:
                   f'Вот мой код:\n {user_solution_code}')
         return prompt
 
-    @staticmethod
-    async def _make_request(prompt: str) -> dict:
+
+class AIClient(BaseClient):
+    """
+    Class for interacting with the OpenAI API
+    """
+
+    def __init__(self):
+        self.client = AsyncOpenAI(
+            api_key=token,
+            timeout=10,
+            max_retries=3
+        )
+
+    async def _make_request(self, prompt: str) -> dict:
         try:
-            completion = await client.chat.completions.create(
+            completion = await self.client.chat.completions.create(
                 model="gpt-4-1106-preview",
                 messages=[
                     {
@@ -49,4 +58,45 @@ class AIClient:
     async def get_explanation(self, task_text: str, user_solution_code: str) -> dict:
         prompt = self._build_prompt(task_text, user_solution_code)
         ai_response = await self._make_request(prompt)
+        return ai_response
+
+
+class AlternateAIClient(BaseClient):
+    """
+    Class for interacting with the OpenAI API
+    """
+
+    def __init__(self):
+        self.url = "https://api.openai.com/v1/chat/completions"
+        self.headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+
+    async def _make_request(self, payload: dict) -> dict:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                        self.url, headers=self.headers, json=payload
+                ) as response:
+                    if response.status == 200:
+                        ai_response = await response.json()
+                        return {"status": True, "content": ai_response["choices"][0]["message"]["content"]}
+                    else:
+                        return {"status": False, "content": f"Something went wrong, response code: {response.status}"}
+        except Exception as e:
+            return {"status": False, "content": f"An exception occurred: {e}"}
+
+    async def get_explanation(self, task_text: str, user_solution_code: str) -> dict:
+        prompt = self._build_prompt(task_text, user_solution_code)
+        payload = {
+            "model": "gpt-4-1106-preview",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        }
+        ai_response = await self._make_request(payload)
         return ai_response

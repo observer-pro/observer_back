@@ -8,6 +8,7 @@ from src.events.exercise import (
     send_solution_from_ai,
     send_steps_from_host,
     send_steps_from_student,
+    send_table,
 )
 from src.events.message import send_message, send_user_messages
 from src.events.room import (
@@ -124,6 +125,11 @@ async def steps_all(sid, data):
 @sio.on('steps/status')
 async def steps_status(sid, data):
     await send_steps_from_student(sio, sid, data)
+
+
+@sio.on('steps/table')
+async def steps_table(sid, data):
+    await send_table(sio, sid, data)
 
 
 @sio.on('settings')
