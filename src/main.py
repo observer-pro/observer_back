@@ -9,7 +9,7 @@ from src.events.exercise import (
     send_steps_from_host,
     send_steps_from_student,
 )
-from src.events.message import send_message
+from src.events.message import send_message, send_user_messages
 from src.events.room import (
     close_room,
     create_room,
@@ -68,6 +68,11 @@ async def message_to_client(sid, data):
 @sio.on('message/to_mentor')
 async def message_to_mentor(sid, data):
     await send_message(sio, sid, data, 'to_mentor')
+
+
+@sio.on('message/user')
+async def user_messages(sid, data):
+    await send_user_messages(sio, sid, data)
 
 
 @sio.on('sharing/start')

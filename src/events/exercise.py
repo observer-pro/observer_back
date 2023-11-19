@@ -146,8 +146,12 @@ async def send_solution_from_ai(sio: AsyncServer, sid: str, data: dict[str, str]
     await emit_log(sio, 'solution/ai data sent to AI')
 
     ai_client = AIClient()
-    ai_response = await ai_client.get_explanation(task, code)
+    ai_response: dict = await ai_client.get_explanation(task, code)
 
-    await sio.emit('solution/ai', data={'content': ai_response}, to=sid)
+    if not ai_response['status']:
+        await handle_bad_request(sio, ai_response['content'])
+        return
+
+    await sio.emit('solution/ai', data={'content': ai_response['content']}, to=sid)
     # log
     await emit_log(sio, f'The solution was sent from the AI to the student with id: {sid}!')

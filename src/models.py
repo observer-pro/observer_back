@@ -121,6 +121,13 @@ class User:
     def get_user_by_sid(cls, sid: str) -> Optional['User']:
         return cls.users.get(sid)
 
+    @classmethod
+    def get_user_messages(cls, user_sid: str) -> Optional[list[dict[str, ...]]]:
+        user = cls.users.get(user_sid, None)
+        if not user:
+            return None
+        return [message.serialize() for message in user.messages]
+
 
 class Message:
     def __init__(self, sender_id, receiver_id, content):

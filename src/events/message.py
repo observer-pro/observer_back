@@ -54,3 +54,34 @@ async def send_message(sio: AsyncServer, sender_sid: str, data: dict, to: str) -
     )
     # log
     await emit_log(sio, f'User {sender.id} has sent message to user: {receiver_id}')
+
+
+async def send_user_messages(sio: AsyncServer, sid: str, data: dict) -> None:
+    """
+    Send user messages.
+    Parameters:
+        sio (AsyncServer): The Socket.IO server instance.
+        sid (str): The session ID of the client.
+        data (dict): The data containing the 'user_id'
+    Returns:
+        None
+    """
+    if not await validate_data(sio, data, 'user_id'):
+        return
+
+    user_id = data.get('user_id')
+
+    host = User.get_user_by_sid(sid)
+    room = Room.get_room_by_id(host.room)
+    if not room:
+        await handle_bad_request(sio, f'No such room with id {host.room}!')
+        return
+
+    user = room.get_user_by_id(user_id)
+    if not user:
+        await handle_bad_request(sio, f'No such user with id {user_id} in the Room {host.room}!')
+        return
+
+    user_messages = User.get_user_messages(user.sid)
+
+    await sio.emit('message/user', data={'user_id': user_id, 'messages': user_messages}, to=sid)

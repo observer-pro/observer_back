@@ -43,3 +43,4 @@ requirements_dev.txt
 *.log
 *.sqlite3
 load_test/
+/openai.http
