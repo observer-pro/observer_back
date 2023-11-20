@@ -131,8 +131,26 @@ async def send_steps_from_student(sio: AsyncServer, sid: str, data: dict[str, st
     )
 
 
-async def send_table(sio: AsyncServer, sid: str, data: dict[str, str]) -> None:
-    return
+async def send_table(sio: AsyncServer, sid: str) -> None:
+    """
+    Send the steps of all students to the host.
+    Args:
+        sio (AsyncServer): The SocketIO server.
+        sid (str): The session ID of the host.
+    Returns:
+        None
+    """
+    host = User.get_user_by_sid(sid)
+    room_id = host.room
+    room = Room.get_room_by_id(room_id)
+    data = [
+        {'user_id': user.id, 'steps': user.steps}
+        for user in room.users if user.steps
+    ]
+
+    await sio.emit('steps/table', data=data, to=sid)
+    # log
+    await emit_log(sio, f'The steps/table was sent to host {host.id}!')
 
 
 async def send_solution_from_ai(sio: AsyncServer, sid: str, data: dict[str, str]) -> None:
@@ -141,7 +159,7 @@ async def send_solution_from_ai(sio: AsyncServer, sid: str, data: dict[str, str]
     Args:
         sio (AsyncServer): The socketio server instance.
         sid (str): The session ID of the user.
-        data (dict): The data containing the question and code.
+        data (dict): The data containing the solution.
     """
     if not await validate_data(sio, data):
         return

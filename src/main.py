@@ -129,7 +129,7 @@ async def steps_status(sid, data):
 
 @sio.on('steps/table')
 async def steps_table(sid, data):
-    await send_table(sio, sid, data)
+    await send_table(sio, sid)
 
 
 @sio.on('settings')
