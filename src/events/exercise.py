@@ -1,8 +1,8 @@
 from socketio import AsyncServer
 
-from src.classes.openai import AlternateAIClient
 from src.models import Room, User
 
+from ..classes.external_api import ExternalAPIClient
 from .utils import deprecated, emit_log, handle_bad_request, validate_data
 
 
@@ -163,16 +163,16 @@ async def send_solution_from_ai(sio: AsyncServer, sid: str, data: dict[str, str]
     """
     if not await validate_data(sio, data):
         return
-    task = data.get('content')
+    content = data.get('content')
     code = data.get('code')
-    if not task or not code:
+    if not content or not code:
         await handle_bad_request(sio, 'Task content and code are required!')
         return
 
     await emit_log(sio, 'solution/ai data sent to AI')
 
-    ai_client = AlternateAIClient()
-    ai_response: dict = await ai_client.get_explanation(task, code)
+    client = ExternalAPIClient()
+    ai_response: dict = await client.get_solution({'content': content, 'code': code})
 
     if not ai_response['status']:
         await handle_bad_request(sio, ai_response['content'])
