@@ -111,6 +111,11 @@ async def rejoin(sio: AsyncServer, sid: str, data: dict, command: str) -> None:
         for student in room.users:
             if student.role == 'client':
                 await sio.emit('message', {'message': 'The teacher has reconnected!'}, to=student.sid)
+
+        # Send imported steps to host if they exist
+        if room.steps:
+            await sio.emit('steps/load', data=room.steps, to=room.host.sid)
+
         # log
         await emit_log(sio, f'Host {user.name} with id {user_id} reconnected!')
 

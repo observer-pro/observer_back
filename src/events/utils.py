@@ -1,5 +1,6 @@
 import logging
 import re
+from enum import Enum
 
 from socketio import AsyncServer
 
@@ -12,6 +13,13 @@ file_handler.setLevel(logging.ERROR)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
+
+
+class AllertsEnum(Enum):
+    INFO = 'INFO'
+    SUCCESS = 'SUCCESS'
+    WARNING = 'WARNING'
+    ERROR = 'ERROR'
 
 
 async def validate_data(sio: AsyncServer, data: dict, *keys) -> bool:
@@ -77,6 +85,18 @@ async def deprecated(sio: AsyncServer, event: str, alternative: str = None) -> N
     if alternative:
         deprecated_message += f' Use the event "{alternative}" instead.'
     await sio.emit('error', data={'message': deprecated_message})
+
+
+async def alerts(sio: AsyncServer, sid: str, message: str, allert_type: AllertsEnum) -> None:
+    """
+    Emit an alert message.
+    Args:
+        sio (AsyncServer): The Socket.IO server instance.
+        sid (str): The session ID of the user.
+        message (str): The alert message to emit.
+        allert_type (str): The type of the alert (INFO, SUCCESS, WARNING, ERROR)
+    """
+    await sio.emit('alerts', data={'message': message, 'type': allert_type.name}, to=sid)
 
 
 def parse_files_to_ignore(data: str) -> dict[str: list[str]]:

@@ -3,7 +3,8 @@ from socketio import AsyncServer
 from src.models import Room, User
 
 from ..classes.external_api import ExternalAPIClient
-from .utils import deprecated, emit_log, handle_bad_request, validate_data
+from ..scraper.notion_scraper import get_exercises_from_notion
+from .utils import AllertsEnum, alerts, deprecated, emit_log, handle_bad_request, validate_data
 
 
 # deprecated from v1.1.0
@@ -151,6 +152,52 @@ async def send_table(sio: AsyncServer, sid: str) -> None:
     await sio.emit('steps/table', data=data, to=sid)
     # log
     await emit_log(sio, f'The steps/table was sent to host {host.id}!')
+
+
+async def import_steps_from_notion(sio: AsyncServer, sid: str, data: dict[str, str]) -> None:
+    """
+    Get Notion url from the host and parse the steps from Notion.
+    Args:
+        sio (AsyncServer): The socketio server instance.
+        sid (str): The session ID of the user.
+        data (dict[str, str]): The data containing the Notion url.
+    """
+    if not await validate_data(sio, data):
+        return
+
+    url = data.get('url')
+    result = await get_exercises_from_notion(url)
+
+    if isinstance(result, list):
+        room_id = User.get_user_by_sid(sid).room
+        room = Room.get_room_by_id(room_id)
+        steps = [
+            {
+                'name': str(count),
+                'content': content,
+                'language': 'html',
+                'type': 'exercise',
+            }
+            for count, content in enumerate(result, 1)
+            if content != ''
+        ]
+
+        if len(steps) == 0:
+            await alerts(sio, sid, 'Похоже в вашем Notion нет заданий!', AllertsEnum.ERROR)
+            await handle_bad_request(sio, message='Notion has no steps!')
+            return
+
+        room.steps = steps
+
+        await sio.emit('steps/load', data=steps, to=sid)
+        await alerts(sio, sid, 'Задания были успешно загружены из Notion!', AllertsEnum.SUCCESS)
+        # log
+        await emit_log(sio, 'The steps were loaded from Notion and sent to the host!')
+    else:
+        await alerts(
+            sio, sid, result.get('message', 'Something went wrong with loading steps from Notion'), AllertsEnum.ERROR
+        )
+        await handle_bad_request(sio, message=result.get('message'))
 
 
 async def send_solution_from_ai(sio: AsyncServer, sid: str, data: dict[str, str]) -> None:

@@ -2,6 +2,7 @@ import socketio
 import uvicorn
 
 from src.events.exercise import (
+    import_steps_from_notion,
     send_exercise,
     send_exercise_feedback,
     send_exercise_reset,
@@ -130,6 +131,11 @@ async def steps_status(sid, data):
 @sio.on('steps/table')
 async def steps_table(sid, data):
     await send_table(sio, sid)
+
+
+@sio.on('steps/import')
+async def steps_import(sid, data):
+    await import_steps_from_notion(sio, sid, data)
 
 
 @sio.on('settings')
