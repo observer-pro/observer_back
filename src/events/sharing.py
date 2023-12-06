@@ -27,7 +27,7 @@ async def send_sharing_status(sio: AsyncServer, data: dict, command: str) -> Non
 
     await sio.emit(f'sharing/{command}', data={}, to=receiver.sid)
     # log
-    await emit_log(sio, f"Host send '{command}' to the user: {receiver_id}")
+    await emit_log(sio, f'Host send {command} to the user: {receiver_id}')
 
 
 async def send_sharing_code(sio: AsyncServer, sid: str, data: dict, command: str) -> None:
@@ -45,11 +45,11 @@ async def send_sharing_code(sio: AsyncServer, sid: str, data: dict, command: str
     room_id = data.get('room_id')
     room = Room.get_room_by_id(room_id)
     user = User.get_user_by_sid(sid)
-    data.update({'user_id': user.id})
+    data.update({'user_id': user.uid})
 
     await sio.emit(f'sharing/{command}', data=data, to=room.host.sid)
     # log
-    await emit_log(sio, f'sharing/{command} to host with id: {room.host.id}')
+    await emit_log(sio, f'sharing/{command} to host with id: {room.host.uid}')
 
 
 # deprecated from v1.1.0
@@ -81,5 +81,5 @@ async def send_signal(sio: AsyncServer, sid: str, data: dict) -> None:
 
     await sio.emit('signal', data=data, to=room.host.sid)
     # log
-    await emit_log(sio, f'The user {user.id} sent a [{signal_value}] signal to host with id {room.host.id}.')
+    await emit_log(sio, f'The user {user.uid} sent a [{signal_value}] signal to host with id {room.host.uid}.')
     await deprecated(sio, 'signal')

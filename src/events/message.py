@@ -31,11 +31,11 @@ async def send_message(sio: AsyncServer, sender_sid: str, data: dict, to: str) -
             await handle_bad_request(sio, f'No such user id {receiver_id} in the room')
             return
     else:
-        receiver_id = room.host.id
+        receiver_id = room.host.uid
         receiver = room.host
 
     sender = User.get_user_by_sid(sender_sid)
-    message = Message(sender_id=sender.id, receiver_id=receiver_id, content=content)
+    message = Message(sender_id=sender.uid, receiver_id=receiver_id, content=content)
 
     if to == 'to_client':
         receiver.messages.append(message)
@@ -45,7 +45,7 @@ async def send_message(sio: AsyncServer, sender_sid: str, data: dict, to: str) -
     await sio.emit(
         f'message/{to}',
         data={
-            'user_id': receiver_id if to == 'to_client' else sender.id,
+            'user_id': receiver_id if to == 'to_client' else sender.uid,
             'room_id': room_id,
             'content': content,
             'datetime': message.created_at,
@@ -53,7 +53,7 @@ async def send_message(sio: AsyncServer, sender_sid: str, data: dict, to: str) -
         to=receiver.sid,
     )
     # log
-    await emit_log(sio, f'User {sender.id} has sent message to user: {receiver_id}')
+    await emit_log(sio, f'User {sender.uid} has sent message to user: {receiver_id}')
 
 
 async def send_user_messages(sio: AsyncServer, sid: str, data: dict) -> None:

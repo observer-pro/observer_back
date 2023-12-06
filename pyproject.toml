@@ -10,8 +10,31 @@ select = [
     # isort
     "I",
     # pep8-naming
-    "N"
+    "N",
+    # flake8 - async, bandit, bugbear, builtins, commas, comprehensions
+    "ASYNC",
+    "S",
+    "B",
+    "A",
+    "COM",
+    "C4",
+    # flake8 - implicit-str-concat, import-conventions, logging-format, print, pyi, pytest-style
+    "ISC",
+    "ICN",
+    "G",
+    "T20",
+    "PYI",
+    "PT",
+    # flake8 - quotes, return, self, simplify, tidy-imports
+    "Q",
+    "RET",
+    "SLF",
+    "SIM",
+    "TID",
+    # Pylint
+    "PL",
 ]
+extend-ignore = ["PLR0913", "S101", "S311", "Q000", "Q001"]
 fixable = ["ALL"]
 show-fixes = true
 include = ["*.py"]
@@ -28,3 +51,10 @@ exclude = [
     "_build",
     "build",
 ]
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+

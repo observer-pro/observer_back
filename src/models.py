@@ -4,21 +4,21 @@ from typing import Optional
 
 
 class Room:
-    id = 1000
+    rid = 1000
     rooms = {}
 
     def __init__(self, host):
-        self.id: int = type(self).id
+        self.rid: int = type(self).rid
         self.users: list[User] = []  # all clients include owner
         self.host: User = host
         self.exercise: str = ''  # deprecated from the v1.1.0
         self.settings: dict[str: list[str]] = {}
-        self.steps: list[dict[str, str]] = []  # TODO: Is the class Step (dict[str, str]) needed?
-        type(self).id += 1
-        type(self).rooms[self.id] = self
+        self.steps: list[dict[str, str]] = []
+        type(self).rid += 1
+        type(self).rooms[self.rid] = self
 
     def __repr__(self):
-        return f'<{type(self).__name__} {self.id}, users count: {len(self.users)}>'
+        return f'<{type(self).__name__} {self.rid}, users count: {len(self.users)}>'
 
     def add_user(self, user: 'User'):
         self.users.append(user)
@@ -30,7 +30,7 @@ class Room:
             if user.status == StatusEnum.OFFLINE:
                 continue
             serialized_user = {
-                'id': user.id,
+                'id': user.uid,
                 'sid': user.sid,
                 'room': user.room,
                 'name': user.name,
@@ -42,16 +42,16 @@ class Room:
 
     def get_room_data(self) -> dict:
         return {
-            'id': self.id,
+            'id': self.rid,
             'users': self.serialize_users(self.users),
-            'host': self.host.id,
+            'host': self.host.uid,
         }
 
     def get_user_by_id(self, user_id: int | None) -> Optional['User']:
         if not user_id:
             return None
         for user in self.users:
-            if user_id == user.id:
+            if user_id == user.uid:
                 return user
         return None
 
@@ -91,13 +91,13 @@ class SignalEnum(Enum):
 
 
 class User:
-    id = 100
+    uid = 100
     users = {}
 
     def __init__(
-            self, sid, name=None, room_id=None, role='client', signal=SignalEnum.NONE, status=StatusEnum.ONLINE
+            self, sid, name=None, room_id=None, role='client', signal=SignalEnum.NONE, status=StatusEnum.ONLINE,
     ):
-        self.id: int = type(self).id
+        self.uid: int = type(self).uid
         self.sid: str = sid
         self.room: int = room_id
         self.name: str = name
@@ -106,7 +106,7 @@ class User:
         self.signal: SignalEnum = signal  # deprecated from the v1.1.0
         self.steps: dict[str: str] = {}
         self.messages: list[Message] = []
-        type(self).id += 1
+        type(self).uid += 1
         type(self).users[self.sid] = self
 
     def __repr__(self):

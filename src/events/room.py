@@ -1,5 +1,5 @@
 import asyncio
-from random import randint
+from random import choice
 
 from socketio import AsyncServer
 
@@ -22,10 +22,10 @@ async def create_room(sio: AsyncServer, sid: str, data: dict) -> None:
     user = User(sid, role='host', name=hostname)
     room = Room(host=user)
     room.add_user(user)
-    user.room = room.id
+    user.room = room.rid
     await sio.emit('room/update', data=room.get_room_data(), to=sid)
     # log
-    await emit_log(sio, f'User {sid} created room (id: {room.id})')
+    await emit_log(sio, f'User {sid} created room (id: {room.rid})')
 
 
 async def join_to_room(sio: AsyncServer, sid: str, data: dict) -> None:
@@ -41,7 +41,7 @@ async def join_to_room(sio: AsyncServer, sid: str, data: dict) -> None:
 
     room_id = data.get('room_id')
     room = Room.get_room_by_id(room_id)
-    username = data.get('name', 'Guest ' + str(randint(1, 10000)))
+    username = data.get('name', 'Guest ' + ''.join(choice('0123456789') for _ in range(10)))
 
     user = User.get_user_by_sid(sid)
     if user and user.room is not None:
@@ -52,29 +52,29 @@ async def join_to_room(sio: AsyncServer, sid: str, data: dict) -> None:
     room.add_user(user)
 
     # Message to student
-    await sio.emit('room/join', data={'user_id': user.id, 'room_id': room_id}, to=sid)
+    await sio.emit('room/join', data={'user_id': user.uid, 'room_id': room_id}, to=sid)
 
     # Deprecated from v1.1.0
     if room.exercise:
         await sio.emit('exercise', data={'content': room.exercise}, to=sid)
         # log
-        await emit_log(sio, f'The exercise was sent to the student (id: {user.id})!')
+        await emit_log(sio, f'The exercise was sent to the student (id: {user.uid})!')
 
     if room.steps:
         await sio.emit('steps/all', data=room.steps, to=sid)
         # log
-        await emit_log(sio, f'The steps were sent to the student (id: {user.id})!')
+        await emit_log(sio, f'The steps were sent to the student (id: {user.uid})!')
 
     # If settings exists, send it to student
     if room.settings:
         await sio.emit('settings', data=room.settings, to=sid)
         # log
-        await emit_log(sio, f'The settings were sent to the student (id: {user.id})!')
+        await emit_log(sio, f'The settings were sent to the student (id: {user.uid})!')
 
     # Update data for teacher
     await sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
     # log
-    await emit_log(sio, f'User {user.id} has joined the Room with id: {room_id}')
+    await emit_log(sio, f'User {user.uid} has joined the Room with id: {room_id}')
 
 
 async def rejoin(sio: AsyncServer, sid: str, data: dict, command: str) -> None:
@@ -103,7 +103,7 @@ async def rejoin(sio: AsyncServer, sid: str, data: dict, command: str) -> None:
 
     if command == 'rejoin':  # Student rejoin
         # 'room/join' event to the student who has reconnected
-        await sio.emit('room/join', data={'user_id': user.id, 'room_id': room_id}, to=sid)
+        await sio.emit('room/join', data={'user_id': user.uid, 'room_id': room_id}, to=sid)
         # log
         await emit_log(sio, f'Student {user.name} with id {user_id} reconnected!')
     else:  # Teacher rehost
@@ -142,13 +142,13 @@ async def exit_from_room(sio: AsyncServer, sid: str, data: dict) -> None:
         await handle_bad_request(sio, f'No user registered with sid: {sid}')
         return
 
-    if not room.remove_user_from_room(user.id):
+    if not room.remove_user_from_room(user.uid):
         await handle_bad_request(sio, f'User is not in room (id: {user.room})')
         return
 
     await sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
     # log
-    await emit_log(sio, f'User {user.id} has left the Room with id: {room_id}')
+    await emit_log(sio, f'User {user.uid} has left the Room with id: {room_id}')
 
 
 async def close_room(sio: AsyncServer, data: dict) -> None:
@@ -191,15 +191,39 @@ async def disconnect_user(sio: AsyncServer, sid: str) -> None:
                 if student.role == 'client':
                     await sio.emit('message', {'message': 'STATUS: The teacher is offline!'}, to=student.sid)
             # log
-            await emit_log(sio, f'Teacher disconnected (host id: {user.id}, room id: {room.id})')
+            await emit_log(sio, f'Teacher disconnected (host id: {user.uid}, room id: {room.rid})')
         else:  # student disconnected
             await sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
             # log
-            await emit_log(sio, f'Student disconnected (id: {user.id}, room id: {room.id})')
+            await emit_log(sio, f'Student disconnected (id: {user.uid}, room id: {room.rid})')
+
+
+async def disconnect_user_by_host(sio: AsyncServer, sid: str, data: dict) -> None:
+    """
+    Disconnect user with user_id from data
+
+    Args:
+        sio (AsyncServer): The Socket.IO server instance.
+        sid (str): The session ID of the user.
+        data (dict): The data containing 'user_id'.
+    """
+    if not await validate_data(sio, data, 'user_id'):
+        return
+
+    host = User.get_user_by_sid(sid)
+    room = Room.get_room_by_id(host.room)
+
+    user_id = data.get('user_id')
+    user_to_kill = room.get_user_by_id(user_id)
+    if not user_to_kill:
+        await handle_bad_request(sio, f'No such user id {user_id} in the room {host.room}')
+        return
+
+    await disconnect_user(sio, user_to_kill.sid)
 
 
 # JUST FOR TESTS
-async def create_test_room(sio: AsyncServer, sid) -> None:
+async def create_test_room(sio: AsyncServer, sid: str) -> None:
     """ Create room for tests """
     room = Room.get_room_by_id(1000)
     if not room:
@@ -207,7 +231,7 @@ async def create_test_room(sio: AsyncServer, sid) -> None:
         test_room = Room(host=user)
         test_room.add_user(user)
         # log
-        await emit_log(sio, f'Test room created (id: {test_room.id})')
+        await emit_log(sio, f'Test room created (id: {test_room.rid})')
 
 
 # JUST FOR TESTS
@@ -223,9 +247,9 @@ async def room_log(sio: AsyncServer, sid: str) -> None:
         'total_rooms_count': len(Room.rooms),
         'rooms': [
             {
-                'room_id': room.id, 'users_count': len(room.users), 'host_id': room.host.id
+                'room_id': room.rid, 'users_count': len(room.users), 'host_id': room.host.uid,
             } for room in rooms
-        ]
+        ],
     }
 
     await sio.emit('room/log', data=rooms_data, to=sid)

@@ -15,7 +15,8 @@ Backend is built on **python-socketio**.
 - Students and teacher can send and receive messages in their rooms.
 - Participants can reconnect to a room if they temporarily lose connection, ensuring continuity in communication.
 - Teachers can initiate and terminate code sharing sessions, allowing participants to collaborate on code in real-time.
-- Students can send files (code snippets, documents) to the teacher during code sharing sessions, promoting efficient collaboration.
+- Students can send files (code snippets, documents) to the teacher during code sharing sessions, promoting efficient
+  collaboration.
 
 ## Installation and Run:
 
@@ -31,16 +32,20 @@ Backend is built on **python-socketio**.
 
 **Room Creation and Connection:**
 
-- `room/create`: Create a room. Sent by the host, a room is created, and data about the room is sent in the `room/update` event.
+- `room/create`: Create a room. Sent by the host, a room is created, and data about the room is sent in
+  the `room/update` event.
 - `room/rehost`: Reconnect a teacher to the room.
-- `room/join`: Join an existing room. Users connect to a room and receive `room/join` in response, containing their data.
+- `room/join`: Join an existing room. Users connects to a room and receive `room/join` in response, containing their
+  data.
 - `room/rejoin`: Reconnect a student to the room.
+- `room/kill`: Force user disconnect.
 - `room/close`: Close the room by the host. Students got the `room/closed` event, notifying about room closure.
 
 **Message Exchange:**
 
 - `message/to_client`: Send a message from the teacher to the student.
 - `message/to_mentor`: Send a message from the student to the teacher.
+- `message/user`: Get messages from/to user.
 - `message`: Information messages
 
 **Collaborative Usage Control:**
@@ -49,11 +54,22 @@ Backend is built on **python-socketio**.
 - `sharing/end`: End code sharing.
 - `sharing/code_send`: Sends files to the host.
 - `sharing/code_update`: Sends updated files to the host after making changes.
-- `signal`: Allows students to send signals to the teacher indicating their current status (e.g., inaction, in progress, help needed, ready).
-- `exercise`:  Distributes the task content from the teacher to all students in the room.
-- `exercise/feedback`: Teacher sends accepts or rejects an exercise submitted by a student.
-- `exercise/reset`: Teacher to reset the accepted/rejected statuses of their exercises
+- `signal`: Allows students to send signals to the teacher indicating their current status (e.g., inaction, in progress,
+  help needed, ready).
+- `steps/all`: Sends tasks to all students.
+- `steps/import`: Imports task data from a Notion document by URL.
+- `steps/table`: Retrieves data with the results of all students.
+- `exercise`: Distributes the task content from the teacher to all students in the
+  room. ![maintenance-status](https://img.shields.io/badge/event-deprecated-red.svg)
+- `exercise/feedback`:Teacher sends accepts or rejects an exercise submitted by a
+  student. ![maintenance-status](https://img.shields.io/badge/event-deprecated-red.svg)
+- `exercise/reset`: Teacher to reset the accepted/rejected statuses of their
+  exercises. ![maintenance-status](https://img.shields.io/badge/event-deprecated-red.svg)
 - `settings`: Transmitting configuration settings.
+
+**Alerts:**
+
+- `alert`: Sends alerts with one of the statuses: INFORMATION, SUCCESS, WARNING and ERROR.
 
 ## Links:
 

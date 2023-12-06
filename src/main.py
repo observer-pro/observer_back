@@ -17,6 +17,7 @@ from src.events.room import (
     create_room,
     create_test_room,
     disconnect_user,
+    disconnect_user_by_host,
     exit_from_room,
     join_to_room,
     rejoin,
@@ -55,6 +56,11 @@ async def room_join(sid, data):
 @sio.on('room/leave')
 async def room_leave(sid, data):
     await exit_from_room(sio, sid, data)
+
+
+@sio.on('room/kill')
+async def room_kill(sid, data):
+    await disconnect_user_by_host(sio, sid, data)
 
 
 @sio.on('signal')

@@ -70,7 +70,7 @@ async def handle_bad_request(sio: AsyncServer, message: str) -> None:
         message (str): The error message.
     """
     await sio.emit('error', data={'message': f'400 BAD REQUEST. {message}'})
-    logger.error(f'Bad request occurred: {message}')
+    logger.error('Bad request occurred: %s', message)
 
 
 async def deprecated(sio: AsyncServer, event: str, alternative: str = None) -> None:
@@ -123,4 +123,4 @@ def parse_files_to_ignore(data: str) -> dict[str: list[str]]:
         else:
             names.append(name)
 
-    return {"names": names, "dirs": directories, "extensions": extensions}
+    return {'names': names, 'dirs': directories, 'extensions': extensions}

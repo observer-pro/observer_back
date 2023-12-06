@@ -1,9 +1,9 @@
 from socketio import AsyncServer
 
+from src.classes.external_api import ExternalAPIClient
 from src.models import Room, User
+from src.scraper.notion_scraper import get_exercises_from_notion
 
-from ..classes.external_api import ExternalAPIClient
-from ..scraper.notion_scraper import get_exercises_from_notion
 from .utils import AllertsEnum, alerts, deprecated, emit_log, handle_bad_request, validate_data
 
 
@@ -56,7 +56,7 @@ async def send_exercise_feedback(sio: AsyncServer, data: dict) -> None:
     accepted = data.get('accepted')
     await sio.emit('exercise/feedback', data={'accepted': accepted}, to=user.sid)
     # log
-    await emit_log(sio, f'Feedback (accepted: {accepted}) was sent to the user with id: {user.id}')
+    await emit_log(sio, f'Feedback (accepted: {accepted}) was sent to the user with id: {user.uid}')
     await deprecated(sio, 'exercise/feedback')
 
 
@@ -92,7 +92,7 @@ async def send_steps_from_host(sio: AsyncServer, sid: str, data: list[dict[str, 
         return
 
     cleaned_data = [
-        item for item in data if "content" in item and item["content"] is not None and item["content"].strip() != ""
+        item for item in data if 'content' in item and item['content'] is not None and item['content'].strip() != ''
     ]
 
     host = User.get_user_by_sid(sid)
@@ -125,10 +125,10 @@ async def send_steps_from_student(sio: AsyncServer, sid: str, data: dict[str, st
 
     user.steps = data
 
-    await sio.emit('steps/status', data={'user_id': user.id, 'steps': data}, to=room.host.sid)
+    await sio.emit('steps/status', data={'user_id': user.uid, 'steps': data}, to=room.host.sid)
     # log
     await emit_log(
-        sio, f'The steps were sent from the student (id: {user.id}) to the host of the room {room_id}!'
+        sio, f'The steps were sent from the student (id: {user.uid}) to the host of the room {room_id}!',
     )
 
 
@@ -145,13 +145,13 @@ async def send_table(sio: AsyncServer, sid: str) -> None:
     room_id = host.room
     room = Room.get_room_by_id(room_id)
     data = [
-        {'user_id': user.id, 'steps': user.steps}
+        {'user_id': user.uid, 'steps': user.steps}
         for user in room.users if user.steps
     ]
 
     await sio.emit('steps/table', data=data, to=sid)
     # log
-    await emit_log(sio, f'The steps/table was sent to host {host.id}!')
+    await emit_log(sio, f'The steps/table was sent to host {host.uid}!')
 
 
 async def import_steps_from_notion(sio: AsyncServer, sid: str, data: dict[str, str]) -> None:
@@ -195,7 +195,7 @@ async def import_steps_from_notion(sio: AsyncServer, sid: str, data: dict[str, s
         await emit_log(sio, 'The steps were loaded from Notion and sent to the host!')
     else:
         await alerts(
-            sio, sid, result.get('message', 'Something went wrong with loading steps from Notion'), AllertsEnum.ERROR
+            sio, sid, result.get('message', 'Something went wrong with loading steps from Notion'), AllertsEnum.ERROR,
         )
         await handle_bad_request(sio, message=result.get('message'))
 
