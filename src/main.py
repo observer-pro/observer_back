@@ -26,9 +26,10 @@ from src.events.room import (
 from src.events.settings import send_settings
 from src.events.sharing import send_sharing_code, send_sharing_status, send_signal
 from src.events.utils import emit_log
+from src.fast_app import fast_app
 
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*', ping_timeout=180)
-app = socketio.ASGIApp(sio)
+app = socketio.ASGIApp(sio, other_asgi_app=fast_app)
 
 
 @sio.event

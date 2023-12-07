@@ -71,6 +71,12 @@ Backend is built on **python-socketio**.
 
 - `alert`: Sends alerts with one of the statuses: INFORMATION, SUCCESS, WARNING and ERROR.
 
+### HTTP Endpoints:
+
+**Room Statistics:**
+- `/roomstats/{room_id}`: Shows student results
+
+
 ## Links:
 
 [💻 observer-app.pro](https://observer-app.pro/)
