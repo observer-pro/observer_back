@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse
@@ -6,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from src.models import Room
 
 fast_app = FastAPI()
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
 @fast_app.get("/roomstats/{room_id}", response_class=HTMLResponse)
