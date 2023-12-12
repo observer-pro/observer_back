@@ -35,7 +35,7 @@ class Room:
                 'room': user.room,
                 'name': user.name,
                 'role': user.role,
-                'messages': [message.serialize() for message in user.messages],
+                # 'messages': [message.serialize() for message in user.messages],  # deprecated from the v1.2.0
             }
             serialized_users.append(serialized_user)
         return serialized_users

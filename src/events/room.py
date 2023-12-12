@@ -5,7 +5,7 @@ from socketio import AsyncServer
 
 from src.models import Room, StatusEnum, User
 
-from .utils import emit_log, handle_bad_request, validate_data
+from .utils import check_version, emit_log, handle_bad_request, validate_data
 
 
 async def create_room(sio: AsyncServer, sid: str, data: dict) -> None:
@@ -38,6 +38,9 @@ async def join_to_room(sio: AsyncServer, sid: str, data: dict) -> None:
     """
     if not await validate_data(sio, data, 'room_id'):
         return
+
+    version = data.get('version')
+    await check_version(sio, sid, version)
 
     room_id = data.get('room_id')
     room = Room.get_room_by_id(room_id)

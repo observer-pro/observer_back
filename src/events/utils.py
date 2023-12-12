@@ -4,6 +4,7 @@ from enum import Enum
 
 from socketio import AsyncServer
 
+from src.config import PLUGIN_VERSION
 from src.models import Room
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,22 @@ async def validate_data(sio: AsyncServer, data: dict, *keys) -> bool:
             await handle_bad_request(sio, f'No room with id: {data[key]}')
             return False
     return True
+
+
+async def check_version(sio: AsyncServer, sid: str, version: str | None) -> None:
+    """
+    Check if the client version is outdated.
+    Args:
+        sio (AsyncServer): The Socket.IO server instance.
+        sid (str): The session ID of the user.
+        version (str): The version string.
+    """
+    if version is None or version != PLUGIN_VERSION:
+        await alerts(
+            sio, sid,
+            'You have an outdated version of the plugin. Please install the latest version 1.2.0',
+            AllertsEnum.WARNING,
+        )
 
 
 async def emit_log(sio: AsyncServer, message: str) -> None:
