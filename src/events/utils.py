@@ -59,14 +59,19 @@ async def check_version(sio: AsyncServer, sid: str, version: str | None) -> None
     Args:
         sio (AsyncServer): The Socket.IO server instance.
         sid (str): The session ID of the user.
-        version (str): The version string.
+        version (str | None): The version string.
     """
-    if version is None or version != PLUGIN_VERSION:
-        await alerts(
-            sio, sid,
-            'You have an outdated version of the plugin. Please install the latest version 1.2.0',
-            AllertsEnum.WARNING,
-        )
+    if version is not None:
+        current_version = [int(part) for part in PLUGIN_VERSION.split('.') if part.isdigit()]
+        version_of_user_plugin = [int(part) for part in version.split('.') if part.isdigit()]
+
+        if current_version > version_of_user_plugin:
+            await alerts(
+                sio, sid,
+                f'You have an outdated version of the plugin. '
+                f'Please install the latest version {PLUGIN_VERSION}',
+                AllertsEnum.WARNING,
+            )
 
 
 async def emit_log(sio: AsyncServer, message: str) -> None:
