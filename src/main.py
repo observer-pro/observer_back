@@ -7,8 +7,9 @@ from src.events.exercise import (
     send_exercise_feedback,
     send_exercise_reset,
     send_solution_from_ai,
+    send_statuses_from_host,
+    send_statuses_from_student,
     send_steps_from_host,
-    send_steps_from_student,
     send_table,
 )
 from src.events.message import send_message, send_user_messages
@@ -130,9 +131,14 @@ async def steps_all(sid, data):
     await send_steps_from_host(sio, sid, data)
 
 
-@sio.on('steps/status')
-async def steps_status(sid, data):
-    await send_steps_from_student(sio, sid, data)
+@sio.on('steps/status/to_client')
+async def steps_status_to_client(sid, data):
+    await send_statuses_from_host(sio, sid, data)
+
+
+@sio.on('steps/status/to_mentor')
+async def steps_status_to_mentor(sid, data):
+    await send_statuses_from_student(sio, sid, data)
 
 
 @sio.on('steps/table')

@@ -108,7 +108,32 @@ async def send_steps_from_host(sio: AsyncServer, sid: str, data: list[dict[str, 
     await emit_log(sio, f'The steps were sent to all students in the room {room_id}!')
 
 
-async def send_steps_from_student(sio: AsyncServer, sid: str, data: dict[str, str]) -> None:
+async def send_statuses_from_host(sio: AsyncServer, sid: str, data: dict[str, int | dict[str, str]]) -> None:
+    if not await validate_data(sio, data, 'user_id'):
+        return
+
+    steps: dict = data.get('steps')
+    host = User.get_user_by_sid(sid)
+    room_id = host.room
+    room = Room.get_room_by_id(room_id)
+    user_id = data.get('user_id')
+    user = room.get_user_by_id(user_id)
+    if not user:
+        await handle_bad_request(sio, f'No such user with id {user_id} in the Room {room_id}!')
+        return
+    if not user.steps:
+        user.steps = steps
+    else:
+        for step, status in steps.items():
+            if step in user.steps:
+                user.steps[step] = status
+
+    await sio.emit('steps/status/to_client', data=data, to=user.sid)
+    # log
+    await emit_log(sio, f'The statuses were sent to the client (User id: {user.uid}) in the Room {room_id}!')
+
+
+async def send_statuses_from_student(sio: AsyncServer, sid: str, data: dict[str, str]) -> None:
     """
     Sends steps from the student to the host of the room.
     Args:
@@ -125,7 +150,7 @@ async def send_steps_from_student(sio: AsyncServer, sid: str, data: dict[str, st
 
     user.steps = data
 
-    await sio.emit('steps/status', data={'user_id': user.uid, 'steps': data}, to=room.host.sid)
+    await sio.emit('steps/status/to_mentor', data={'user_id': user.uid, 'steps': data}, to=room.host.sid)
     # log
     await emit_log(
         sio, f'The steps were sent from the student (id: {user.uid}) to the host of the room {room_id}!',
