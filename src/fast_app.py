@@ -25,7 +25,9 @@ async def stats(request: Request, room_id: int):
         {
             'username': user.name,
             'steps': user.steps,
-            'result': round(sum(1 for step in user.steps.values() if step == 'DONE') / len(user.steps) * 100),
+            'result': round(
+                sum(1 for step in user.steps.values() if step in ['DONE', 'ACCEPTED']) / len(user.steps) * 100,
+            ),
         }
         for user in room.users if user.steps
     ]

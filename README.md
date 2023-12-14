@@ -8,7 +8,7 @@ Backend is built on **python-socketio**.
 ![Observer](https://habrastorage.org/webt/ii/rt/u6/iirtu6stfynhos1m1bwekdms6vu.jpeg)
 ![Settings](https://habrastorage.org/webt/_h/-w/c_/_h-wc_xic8sdbqot6i1mf_adbs8.png)
 
-## Features:
+## Features
 
 - Hosts (teachers) can create new chat rooms, providing a platform for collaboration and communication.
 - Users can join or leave existing chat rooms as participants (students and teacher).
@@ -18,15 +18,15 @@ Backend is built on **python-socketio**.
 - Students can send files (code snippets, documents) to the teacher during code sharing sessions, promoting efficient
   collaboration.
 
-## Installation and Run:
+## Installation and Run
 
 - Clone the repository to your local machine `git clone git@github.com:bendenko-v/IDE_Observer.git`
 - Create and activate a virtual environment (optional but recommended) `python3 -m venv venv`
   `source venv/bin/activate`
 - Install the required packages `pip install -r requirements.txt`
-- Run the app `python3 main.py`
+- Run the app `uvicorn src.main:app --host 0.0.0.0 --port 8000`
 
-## Usage:
+## Usage
 
 ### Events:
 
@@ -57,6 +57,8 @@ Backend is built on **python-socketio**.
 - `signal`: Allows students to send signals to the teacher indicating their current status (e.g., inaction, in progress,
   help needed, ready).
 - `steps/all`: Sends tasks to all students.
+- `steps/status/to_mentor`: Sends statuses about tasks from a student to a teacher.
+- `steps/status/to_client`: Sends statuses about the acceptance of tasks by the teacher.
 - `steps/import`: Imports task data from a Notion document by URL.
 - `steps/table`: Retrieves data with the results of all students.
 - `exercise`: Distributes the task content from the teacher to all students in the
@@ -77,6 +79,6 @@ Backend is built on **python-socketio**.
 - `/roomstats/{room_id}`: Shows student results
 
 
-## Links:
+## Links
 
 [💻 observer-app.pro](https://observer-app.pro/)
