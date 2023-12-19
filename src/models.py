@@ -110,7 +110,7 @@ class User:
         type(self).users[self.sid] = self
 
     def __repr__(self):
-        return f'{type(self).__name__} obj, sid: {self.sid}'
+        return f'<{type(self).__name__}, sid: {self.sid}, name: {self.name}, status: {self.status}>'
 
     def set_new_sid(self, sid: str) -> None:
         del type(self).users[self.sid]

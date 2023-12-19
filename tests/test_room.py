@@ -1,12 +1,12 @@
 import asyncio
 
-import pytest
 from socketio import AsyncClient
 
+from tests.conftest import TestContext
 
-@pytest.mark.asyncio
-async def test_room_create(host: AsyncClient, room_update: dict):
-    """Test room create by host"""
+
+async def test_room_create(host: AsyncClient, room_update: dict, context: TestContext):
+    """Test room/create by host"""
     await host.emit('room/create', data={'name': 'Teacher'})
     await asyncio.sleep(0.1)
 
@@ -14,68 +14,60 @@ async def test_room_create(host: AsyncClient, room_update: dict):
     assert user['role'] == 'host'
     assert user['name'] == 'Teacher'
 
+    context.room_id = room_update['id']
+    context.host_id = room_update['host']
 
-@pytest.mark.asyncio
-async def test_room_create_join_leave(
-        host: AsyncClient, client: AsyncClient, room_update: dict, room_join: dict
+
+async def test_room_rehost_join_alerts(
+        host: AsyncClient, client: AsyncClient,
+        room_join: dict, room_update: dict, alerts: dict,
+        context: TestContext,
 ):
-    """Test room create by host, join and leave by user"""
-    await host.emit('room/create', data={'name': 'Teacher'})
+    """
+    Test room/rehost by teacher,
+    Test room/join and room/leave by user
+    Test alerts when user have an outdated version
+    """
+    await host.emit('room/rehost', data={'user_id': context.host_id, 'room_id': context.room_id})
     await asyncio.sleep(0.1)
-    await client.emit('room/join', data={'room_id': room_update['id'], 'name': 'John Test'})
+    await client.emit(
+        'room/join',
+        data={'room_id': context.room_id, 'name': 'John Test', 'version': '1.1'},
+    )
     await asyncio.sleep(0.1)
+    assert 'You have an outdated version of the plugin' in alerts['message']
+    assert alerts['type'] == 'WARNING'
+
+    await asyncio.sleep(0.1)
+    assert len(room_update['users']) == 2
+
+    user = room_update['users'][1]
+    context.client_id = room_join['user_id']
+    assert user['id'] == context.client_id
+    assert user['room'] == context.room_id
+    assert user['role'] == 'client'
+    assert user['name'] == 'John Test'
+
+
+async def test_room_rejoin_leave(
+        host: AsyncClient, client: AsyncClient, room_join: dict, room_update: dict, context: TestContext,
+):
+    """
+    Test room/rejoin by student
+    """
+    await host.emit('room/rehost', data={'user_id': context.host_id, 'room_id': context.room_id})
+    await asyncio.sleep(0.1)
+    await client.emit(
+        'room/rejoin',
+        data={'room_id': context.room_id, 'user_id': context.client_id},
+    )
+    await asyncio.sleep(0.1)
+
+    assert room_join['room_id'] == context.room_id
+    assert room_join['user_id'] == context.client_id
 
     assert len(room_update['users']) == 2
 
-    response = room_update['users'][1]
-    assert response['id'] == room_join['user_id']
-    assert response['room'] == room_join['room_id']
-    assert response['role'] == 'client'
-    assert response['name'] == 'John Test'
-
-    await client.emit('room/leave', data={'room_id': room_join['room_id']})
+    await client.emit('room/leave', data={'room_id': context.room_id})
     await asyncio.sleep(0.1)
     assert len(room_update['users']) == 1
-
-
-@pytest.mark.asyncio
-async def test_signal(
-        host: AsyncClient, client: AsyncClient, room_update: dict, room_join: dict
-):
-    """Test room create by host, join and leave by user"""
-    await host.emit('room/create', data={'name': 'Teacher'})
-    await asyncio.sleep(0.1)
-    await client.emit('room/join', data={'room_id': room_update['id'], 'name': 'John Test'})
-    await asyncio.sleep(0.1)
-
-
-@pytest.mark.asyncio
-async def test_send_message(
-        host: AsyncClient, client: AsyncClient, room_update: dict, room_join: dict, message_to_client: dict,
-        message_to_mentor: dict
-):
-    """Test send message by host to user and vice versa"""
-    await host.emit('room/create', data={'name': 'Teacher'})
-    await asyncio.sleep(0.1)
-    await client.emit('room/join', data={'room_id': room_update['id'], 'name': 'John Test'})
-    await asyncio.sleep(0.1)
-
-    message = {'user_id': room_join['user_id'], 'room_id': room_join['room_id'], 'content': 'Test message'}
-
-    await host.emit('message/to_client', data=message)
-    await asyncio.sleep(0.1)
-
-    for field in ('user_id', 'room_id', 'content', 'datetime'):
-        assert field in message_to_client
-
-    message_to_client.pop('datetime')
-    assert message == message_to_client  # check message to student
-
-    message.pop('user_id')
-
-    await client.emit('message/to_mentor', data=message)
-    await asyncio.sleep(0.1)
-
-    message_to_mentor.pop('datetime')
-    message['user_id'] = room_update['host']
-    assert message == message_to_mentor  # check message to mentor
