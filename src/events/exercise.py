@@ -128,7 +128,7 @@ async def send_statuses_from_host(sio: AsyncServer, sid: str, data: dict[str, in
             if step in user.steps:
                 user.steps[step] = status
 
-    await sio.emit('steps/status/to_client', data=data, to=user.sid)
+    await sio.emit('steps/status/to_client', data=steps, to=user.sid)
     # log
     await emit_log(sio, f'The statuses were sent to the client (User id: {user.uid}) in the Room {room_id}!')
 
