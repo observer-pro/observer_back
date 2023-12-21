@@ -126,6 +126,10 @@ async def send_statuses_from_host(sio: AsyncServer, sid: str, data: dict[str, in
     else:
         for step, status in steps.items():
             if step in user.steps:
+                if status == 'ACCEPTED' and user.steps[step] != status:
+                    await alerts(
+                        sio, user.sid, f'Your solution to Task {step} is accepted!', AllertsEnum.SUCCESS,
+                    )
                 user.steps[step] = status
 
     await sio.emit('steps/status/to_client', data=steps, to=user.sid)
