@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class Block(BaseModel):
-    type: list | str | None
+    type_: list | str | None
     properties: dict | list | None
 
 
@@ -23,26 +23,25 @@ async def scrape(domain: str, page_id: str) -> dict[str, str]:
     url = f'https://{domain}/api/v3/loadPageChunk'
     payload = {
         "page": {
-            "id": page_id
+            "id": page_id,
         },
         "limit": 50,
         "cursor": {
-            "stack": []
+            "stack": [],
         },
         "chunkNumber": 0,
-        "verticalColumns": False
+        "verticalColumns": False,
     }
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession() as session:  # noqa SIM117
             async with session.post(
-                    url, data=json.dumps(payload), headers={'Content-Type': 'application/json'}
+                    url, data=json.dumps(payload), headers={'Content-Type': 'application/json'},
             ) as response:
                 if response.status == 200:
                     return await response.json()
-                else:
-                    return {
-                        "error": f'Could not connect to Notion, status: {response.status}, reason: {response.reason}'
-                    }
+                return {
+                    "error": f'Could not connect to Notion, status: {response.status}, reason: {response.reason}',
+                }
     except Exception:
         return {"error": f'Could not connect to Notion to parse tasks with id: {page_id}!'}
 
@@ -64,12 +63,12 @@ def extract_domain_and_page_id_from_url(url: str) -> dict[str, str]:
         domain = parsed_url.netloc
         path_parts = url.split("/")[1:]
 
-        if '?' in path_parts[2]:
+        if '?' in path_parts[2]:  # noqa SIM108
             page_id = path_parts[2].split('?')[0][-32:]
         else:
             page_id = path_parts[2][-32:]
 
-        if not len(page_id) == 32:
+        if len(page_id) != 32:
             return {'message': f'Could not extract page_id from url: {url}, page_id length is not 32 symbols'}
 
         page_id = page_id[:8] + '-' + page_id[8:12] + '-' + page_id[12:16] + '-' + page_id[16:20] + '-' + page_id[20:]
@@ -89,7 +88,7 @@ async def parse_exercises(data: dict) -> list[str]:
         list[str]: The parsed exercises as a list of strings.
     """
     filtered_data: list[Block] = [
-        Block(type=item['type'], properties=item.get('properties', {}))
+        Block(type_=item['type'], properties=item.get('properties', {}))
         for item in [
             data['block'][block]['value']
             for block in data['block']
@@ -103,15 +102,15 @@ async def parse_exercises(data: dict) -> list[str]:
     all_tasks = []
     task = []
     for item in filtered_data:
-        if 'header' in item.type:
+        if 'header' in item.type_:
             task.append(
-                '<h3>' + item.properties['title'][0][0] + '</h3>'
+                '<h3>' + item.properties['title'][0][0] + '</h3>',
             )
-        elif 'code' in item.type:
+        elif 'code' in item.type_:
             task.append(
-                '<pre><code>' + item.properties['title'][0][0] + '</code></pre>'
+                '<pre class="ql-syntax">' + item.properties['title'][0][0] + '</pre>',
             )
-        elif item.type == 'divider':
+        elif item.type_ == 'divider':
             all_tasks.append(''.join(task))
             task = []
         else:
@@ -122,8 +121,8 @@ async def parse_exercises(data: dict) -> list[str]:
                 else:
                     text.append(i[0])
             task.append(''.join(text) + '<br>')
-    else:
-        all_tasks.append(''.join(task))
+
+    all_tasks.append(''.join(task))
     return all_tasks
 
 
@@ -145,8 +144,6 @@ async def get_exercises_from_notion(link: str) -> list[str] | dict[str, str]:
         data: dict = await scrape(domain, page_id)
         if data.get('error'):
             return {'message': data.get('error')}
-        else:
-            records = data.get('recordMap')
-            return await parse_exercises(records)
-    else:
-        return {'message': f'Could not extract domain and page_id from url: {link}'}
+        records = data.get('recordMap')
+        return await parse_exercises(records)
+    return {'message': f'Could not extract domain and page_id from url: {link}'}
