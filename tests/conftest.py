@@ -2,7 +2,7 @@ import pytest_asyncio
 from socketio import AsyncClient
 
 
-@pytest_asyncio.fixture(scope='function')
+@pytest_asyncio.fixture()
 async def host_client():
     client = AsyncClient()
     await client.connect('http://127.0.0.1:5000')
@@ -15,7 +15,7 @@ async def host(host_client):
     return host_client
 
 
-@pytest_asyncio.fixture(scope='function')
+@pytest_asyncio.fixture()
 async def user_client():
     client = AsyncClient()
     await client.connect('http://127.0.0.1:5000')

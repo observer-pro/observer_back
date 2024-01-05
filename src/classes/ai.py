@@ -7,7 +7,8 @@ from openai import APIConnectionError, APIStatusError, AsyncOpenAI, BadRequestEr
 
 load_dotenv(Path(__file__).parent.parent.parent / '.env')
 
-token = os.getenv("OPENAI_API_KEY")
+TOKEN = os.getenv("OPENAI_API_KEY")
+AI_MODEL = "gpt-4-1106-preview"
 
 
 class BaseClient:
@@ -17,10 +18,12 @@ class BaseClient:
 
     @staticmethod
     def _build_prompt(task_text: str, user_solution_code: str) -> str:
-        prompt = (f'Я выполнил задание (текст задания: "{task_text}")!\n '
-                  f'Помоги с решением задания и объясни что не так в моём коде (если что-то не так)!\n'
-                  f'Вот мой код:\n {user_solution_code}')
-        return prompt
+        return (
+            f'Я выполнил задание (текст задания: "{task_text}")!\n '
+            f'Помоги с решением задания и объясни что не так в моём коде (если что-то не так)!\n'
+            f'Вот мой код:\n {user_solution_code}'
+        )
+
 
 
 class AIClient(BaseClient):
@@ -30,21 +33,21 @@ class AIClient(BaseClient):
 
     def __init__(self):
         self.client = AsyncOpenAI(
-            api_key=token,
+            api_key=TOKEN,
             timeout=10,
-            max_retries=3
+            max_retries=3,
         )
 
     async def _make_request(self, prompt: str) -> dict:
         try:
             completion = await self.client.chat.completions.create(
-                model="gpt-4-1106-preview",
+                model=AI_MODEL,
                 messages=[
                     {
                         "role": "user",
-                        "content": prompt
-                    }
-                ]
+                        "content": prompt,
+                    },
+                ],
             )
             response = completion.choices[0].message.content
             return {"status": True, "content": response}
@@ -57,8 +60,7 @@ class AIClient(BaseClient):
 
     async def get_explanation(self, task_text: str, user_solution_code: str) -> dict:
         prompt = self._build_prompt(task_text, user_solution_code)
-        ai_response = await self._make_request(prompt)
-        return ai_response
+        return await self._make_request(prompt)
 
 
 class AlternateAIClient(BaseClient):
@@ -69,7 +71,7 @@ class AlternateAIClient(BaseClient):
     def __init__(self):
         self.url = "https://api.openai.com/v1/chat/completions"
         self.headers = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {TOKEN}",
             "Content-Type": "application/json",
         }
 
@@ -77,26 +79,24 @@ class AlternateAIClient(BaseClient):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                        self.url, headers=self.headers, json=payload
+                        self.url, headers=self.headers, json=payload,
                 ) as response:
                     if response.status == 200:
                         ai_response = await response.json()
                         return {"status": True, "content": ai_response["choices"][0]["message"]["content"]}
-                    else:
-                        return {"status": False, "content": f"Something went wrong, response code: {response.status}"}
+                    return {"status": False, "content": f"Something went wrong, response code: {response.status}"}
         except Exception as e:
             return {"status": False, "content": f"An exception occurred: {e}"}
 
     async def get_explanation(self, task_text: str, user_solution_code: str) -> dict:
         prompt = self._build_prompt(task_text, user_solution_code)
         payload = {
-            "model": "gpt-4-1106-preview",
+            "model": AI_MODEL,
             "messages": [
                 {
                     "role": "user",
-                    "content": prompt
-                }
-            ]
+                    "content": prompt,
+                },
+            ],
         }
-        ai_response = await self._make_request(payload)
-        return ai_response
+        return await self._make_request(payload)

@@ -1,5 +1,9 @@
+import os
+from pathlib import Path
+
 import socketio
 import uvicorn
+from dotenv import load_dotenv
 
 from src.events.exercise import (
     import_steps_from_notion,
@@ -28,6 +32,14 @@ from src.events.settings import send_settings
 from src.events.sharing import send_sharing_code, send_sharing_status, send_signal
 from src.events.utils import emit_log
 from src.fast_app import fast_app
+
+load_dotenv(Path(__file__).parent.parent / '.env')
+
+if os.getenv('SERVER') == 'prod':
+    import sentry_sdk
+
+    GLITCHTIP_DSN = os.getenv('GLITCHTIP_DSN')
+    sentry_sdk.init(GLITCHTIP_DSN)
 
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*', ping_timeout=180)
 app = socketio.ASGIApp(sio, other_asgi_app=fast_app)
