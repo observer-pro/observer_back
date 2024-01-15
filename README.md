@@ -50,12 +50,11 @@ Backend is built on **python-socketio**.
 
 **Collaborative Usage Control:**
 
+- `settings`: Transmitting configuration settings.
 - `sharing/start`: Initiates code sharing.
 - `sharing/end`: End code sharing.
 - `sharing/code_send`: Sends files to the host.
 - `sharing/code_update`: Sends updated files to the host after making changes.
-- `signal`: Allows students to send signals to the teacher indicating their current status (e.g., inaction, in progress,
-  help needed, ready).
 - `steps/all`: Sends tasks to all students.
 - `steps/status/to_mentor`: Sends statuses about tasks from a student to a teacher.
 - `steps/status/to_client`: Sends statuses about the acceptance of tasks by the teacher.
@@ -67,16 +66,18 @@ Backend is built on **python-socketio**.
   student. ![maintenance-status](https://img.shields.io/badge/event-deprecated-red.svg)
 - `exercise/reset`: Teacher to reset the accepted/rejected statuses of their
   exercises. ![maintenance-status](https://img.shields.io/badge/event-deprecated-red.svg)
-- `settings`: Transmitting configuration settings.
+
+- `signal`: Allows students to send signals to the teacher indicating their current status (e.g., inaction, in progress,
+  help needed, ready). ![maintenance-status](https://img.shields.io/badge/event-deprecated-red.svg)
 
 **Alerts:**
 
-- `alert`: Sends alerts with one of the statuses: INFORMATION, SUCCESS, WARNING and ERROR.
+- `alerts`: Sends alerts with one of the statuses: INFORMATION, SUCCESS, WARNING and ERROR.
 
 ### HTTP Endpoints:
 
 **Room Statistics:**
-- `/roomstats/{room_id}`: Shows student results
+- `/roomstats/{room_id}`: Shows student results live
 
 
 ## Links
