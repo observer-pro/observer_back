@@ -2,38 +2,33 @@ import pytest_asyncio
 from socketio import AsyncClient
 
 
-@pytest_asyncio.fixture()
-async def host_client():
-    client = AsyncClient()
-    await client.connect('http://127.0.0.1:5000')
-    yield client
-    await client.disconnect()
+async def client_generator():
+    user = AsyncClient()
+    await user.connect('http://127.0.0.1:5000')
+    yield user
+    await user.disconnect()
 
 
 @pytest_asyncio.fixture
-async def host(host_client):
-    return host_client
-
-
-@pytest_asyncio.fixture()
-async def user_client():
-    client = AsyncClient()
-    await client.connect('http://127.0.0.1:5000')
-    yield client
-    await client.disconnect()
+async def host():
+    yield await client_generator().__anext__()
 
 
 @pytest_asyncio.fixture
-async def client(user_client):
-    return user_client
+async def client():
+    yield await client_generator().__anext__()
 
 
-def create_response_fixture(client, event_name):
-    response = {}
+def create_response_fixture(user, event_name, type_of_data='dict'):
+    response = {} if type_of_data == 'dict' else []
 
-    @client.on(event_name)
+    @user.on(event_name)
     async def handle_event(data):
-        response.update(data)
+        nonlocal response
+        if type_of_data == 'dict':
+            response.update(data)
+        else:
+            response.extend(data)
 
     return response
 
@@ -49,13 +44,33 @@ async def room_join(client: AsyncClient):
 
 
 @pytest_asyncio.fixture
-async def room_rehost(client: AsyncClient):
-    return create_response_fixture(client, 'room/rehost')
+async def room_closed(client: AsyncClient):
+    return create_response_fixture(client, 'room/closed')
 
 
 @pytest_asyncio.fixture
-async def room_rejoin(client: AsyncClient):
-    return create_response_fixture(client, 'room/rejoin')
+async def settings(client: AsyncClient):
+    return create_response_fixture(client, 'settings')
+
+
+@pytest_asyncio.fixture
+async def steps_all(client: AsyncClient):
+    return create_response_fixture(client, 'steps/all', type_of_data='list')
+
+
+@pytest_asyncio.fixture
+async def steps_table(host: AsyncClient):
+    return create_response_fixture(host, 'steps/table', type_of_data='list')
+
+
+@pytest_asyncio.fixture
+async def steps_to_mentor(host: AsyncClient):
+    return create_response_fixture(host, 'steps/status/to_mentor')
+
+
+@pytest_asyncio.fixture
+async def steps_to_client(client: AsyncClient):
+    return create_response_fixture(client, 'steps/status/to_client')
 
 
 @pytest_asyncio.fixture

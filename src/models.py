@@ -4,23 +4,18 @@ from typing import Optional
 
 
 class Room:
-    rid = 1000
-    rooms = {}
-
-    def __init__(self, host):
-        self.rid: int = type(self).rid
+    def __init__(self, room_id: int, host: 'User'):
+        self.rid = room_id
+        self.host = host
         self.users: list[User] = []  # all clients include owner
-        self.host: User = host
-        self.exercise: str = ''  # deprecated from the v1.1.0
-        self.settings: dict[str: list[str]] = {}
+        self.settings: dict[str : list[str]] = {}
         self.steps: list[dict[str, str]] = []
-        type(self).rid += 1
-        type(self).rooms[self.rid] = self
+        self.exercise: str = ''  # deprecated from the v1.1.0
 
     def __repr__(self):
-        return f'<{type(self).__name__} {self.rid}, users count: {len(self.users)}>'
+        return f'<{self.__class__.__name__} {self.rid}, users count: {len(self.users)}>'
 
-    def add_user(self, user: 'User'):
+    def enter_user_to_room(self, user: 'User'):
         self.users.append(user)
 
     @staticmethod
@@ -66,18 +61,6 @@ class Room:
             return True
         return False
 
-    @classmethod
-    def get_room_by_id(cls, room_id: int) -> Optional['Room']:
-        return cls.rooms.get(room_id)
-
-    @classmethod
-    def delete_room(cls, room_id: int) -> None:
-        room = cls.get_room_by_id(room_id)
-        if room:
-            for user in room.users:
-                del User.users[user.sid]
-            del cls.rooms[room_id]
-
 
 class StatusEnum(Enum):
     OFFLINE = 'offline'
@@ -92,42 +75,31 @@ class SignalEnum(Enum):
 
 
 class User:
-    uid = 100
-    users = {}
-
     def __init__(
-            self, sid, name=None, room_id=None, role='client', signal=SignalEnum.NONE, status=StatusEnum.ONLINE,
+        self,
+        sid,
+        uid,
+        name=None,
+        room_id=None,
+        role='client',
+        signal=SignalEnum.NONE,
+        status=StatusEnum.ONLINE,
     ):
-        self.uid: int = type(self).uid
         self.sid: str = sid
-        self.room: int = room_id
+        self.uid: int = uid
         self.name: str = name
+        self.room: int = room_id
         self.role: str = role
         self.status: StatusEnum = status
-        self.signal: SignalEnum = signal  # deprecated from the v1.1.0
-        self.steps: dict[str: str] = {}
+        self.steps: dict[str:str] = {}
         self.messages: list[Message] = []
-        type(self).uid += 1
-        type(self).users[self.sid] = self
+        self.signal: SignalEnum = signal  # deprecated from the v1.1.0
 
     def __repr__(self):
-        return f'<{type(self).__name__}, sid: {self.sid}, name: {self.name}, status: {self.status}>'
+        return f'<{self.__class__.__name__} {self.uid}, name: {self.name}, status: {self.status.name}>'
 
-    def set_new_sid(self, sid: str) -> None:
-        del type(self).users[self.sid]
-        self.sid = sid
-        type(self).users[self.sid] = self
-
-    @classmethod
-    def get_user_by_sid(cls, sid: str) -> Optional['User']:
-        return cls.users.get(sid)
-
-    @classmethod
-    def get_user_messages(cls, user_sid: str) -> Optional[list[dict[str, ...]]]:
-        user = cls.users.get(user_sid, None)
-        if not user:
-            return None
-        return [message.serialize() for message in user.messages]
+    def get_user_messages(self) -> Optional[list[dict[str, ...]]]:
+        return [message.serialize() for message in self.messages]
 
 
 class Message:

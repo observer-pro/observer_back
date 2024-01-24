@@ -34,7 +34,7 @@ select = [
     # Pylint
     "PL",
 ]
-extend-ignore = ["PLR2004", "PLR0913", "S311", "SIM117", "Q000", "Q001"]
+extend-ignore = ["PLR2004", "PLR0913", "S311", "SIM117", "Q000", "Q001", "Q003", "ISC001", "COM812"]
 fixable = ["ALL"]
 show-fixes = true
 include = ["*.py"]

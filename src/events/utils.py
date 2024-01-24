@@ -5,123 +5,109 @@ from enum import Enum
 from socketio import AsyncServer
 
 from src.config import PLUGIN_VERSION
-from src.models import Room
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler('../../log.log')
-file_handler.setLevel(logging.ERROR)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+from src.managers import room_manager, user_manager
 
 
-class AllertsEnum(Enum):
+class AlertsEnum(Enum):
     INFO = 'INFO'
     SUCCESS = 'SUCCESS'
     WARNING = 'WARNING'
     ERROR = 'ERROR'
 
 
-async def validate_data(sio: AsyncServer, data: dict, *keys) -> bool:
-    """
-    Validate incoming data
-    Args:
-        sio (AsyncServer): The Socket.IO server instance.
-        data (dict): JSON object
-        *keys: list of keys to check
-    Returns:
-        True if keys are present in data and are of correct type.
-    """
-    if not isinstance(data, dict):
-        await handle_bad_request(sio, 'Data should be a JSON object')
-        return False
+class Utils:
+    def __init__(self, sio: AsyncServer, logger: logging.Logger):
+        self.sio = sio
+        self.logger = logger
 
-    for key in keys:
-        if key not in data:
-            await handle_bad_request(sio, f'{key} is not present in data')
+    async def validate_data(self, data: dict, *keys) -> bool:
+        """
+        Validate incoming data
+        Args:
+            data (dict): JSON object
+            *keys: list of keys to check
+        Returns:
+            True if keys are present in data and are of correct type.
+        """
+        if not isinstance(data, dict):
+            await self.handle_bad_request('Data should be a JSON object')
             return False
-        if key == 'accepted' and not isinstance(data[key], bool):
-            await handle_bad_request(sio, f'{key} should be a boolean')
-            return False
-        if key in ('room_id', 'user_id') and not isinstance(data[key], int):
-            await handle_bad_request(sio, f'{key} should be an integer')
-            return False
-        if key == 'room_id' and not Room.get_room_by_id(data[key]):
-            await handle_bad_request(sio, f'No room with id: {data[key]}')
-            return False
-    return True
+
+        for key in keys:
+            if key not in data:
+                await self.handle_bad_request(f'{key} is not present in data')
+                return False
+            if key == 'accepted' and not isinstance(data[key], bool):
+                await self.handle_bad_request(f'{key} should be a boolean')
+                return False
+            if key in ('room_id', 'user_id') and not isinstance(data[key], int):
+                await self.handle_bad_request(f'{key} should be an integer')
+                return False
+            if key == 'room_id' and not room_manager.get_room_by_id(data[key]):
+                await self.handle_bad_request(f'No room with id: {data[key]}')
+                return False
+        return True
+
+    async def check_version(self, sid: str, version: str | None) -> None:
+        """
+        Check if the client version is outdated.
+        Args:
+            sid (str): The session ID of the user.
+            version (str | None): The version string.
+        """
+        if version is not None:
+            current_version = [int(part) for part in PLUGIN_VERSION.split('.') if part.isdigit()]
+            version_of_user_plugin = [int(part) for part in version.split('.') if part.isdigit()]
+
+            if current_version > version_of_user_plugin:
+                await self.alerts(
+                    sid,
+                    f'You have an outdated version of the plugin. '
+                    f'Please install the latest version {PLUGIN_VERSION}',
+                    AlertsEnum.WARNING,
+                )
+
+    async def handle_bad_request(self, message: str) -> None:
+        """
+        Handle bad request by emitting an error event and logging the error message.
+        Args:
+            message (str): The error message.
+        """
+        await self.sio.emit('error', data={'message': f'Bad Request: {message}'})
+        self.logger.error('Bad request: %s', message)
+
+    async def deprecated(self, event: str, alternative: str = None) -> None:
+        """
+        Handle deprecated event by emitting an error event.
+        Args:
+            event (str): The deprecated event name.
+            alternative (str): An alternative event to use.
+        """
+        deprecated_message = f'The event "{event}" is deprecated and will be removed in future releases.'
+        if alternative:
+            deprecated_message += f' Use the event "{alternative}" instead.'
+        await self.sio.emit('error', data={'message': deprecated_message})
+
+    async def alerts(self, sid: str, message: str, allert_type: AlertsEnum) -> None:
+        """
+        Emit an alert message.
+        Args:
+            sid (str): The session ID of the user.
+            message (str): The alert message to emit.
+            allert_type (str): The type of the alert (INFO, SUCCESS, WARNING, ERROR)
+        """
+        await self.sio.emit('alerts', data={'message': message, 'type': allert_type.name}, to=sid)
+
+    async def create_test_room(self) -> None:
+        """Create room for tests"""
+        room = room_manager.get_room_by_id(1000)
+        if not room:
+            user = user_manager.create_user('TESTROOMHOST', name='Mama Zmeya', role='host')
+            test_room = room_manager.create_room(host=user)
+            self.logger.debug('Test room created with id: %s', test_room.rid)
 
 
-async def check_version(sio: AsyncServer, sid: str, version: str | None) -> None:
-    """
-    Check if the client version is outdated.
-    Args:
-        sio (AsyncServer): The Socket.IO server instance.
-        sid (str): The session ID of the user.
-        version (str | None): The version string.
-    """
-    if version is not None:
-        current_version = [int(part) for part in PLUGIN_VERSION.split('.') if part.isdigit()]
-        version_of_user_plugin = [int(part) for part in version.split('.') if part.isdigit()]
-
-        if current_version > version_of_user_plugin:
-            await alerts(
-                sio, sid,
-                f'You have an outdated version of the plugin. '
-                f'Please install the latest version {PLUGIN_VERSION}',
-                AllertsEnum.WARNING,
-            )
-
-
-async def emit_log(sio: AsyncServer, message: str) -> None:
-    """
-    Emit a log message.
-    Args:
-        sio (AsyncServer): The Socket.IO server instance.
-        message (str): The log message to emit.
-    """
-    await sio.emit('log', data={'message': message})
-
-
-async def handle_bad_request(sio: AsyncServer, message: str) -> None:
-    """
-    Handle bad request by emitting an error event and logging the error message.
-    Args:
-        sio (AsyncServer): The Socket.IO server instance.
-        message (str): The error message.
-    """
-    await sio.emit('error', data={'message': f'400 BAD REQUEST. {message}'})
-    logger.error('Bad request occurred: %s', message)
-
-
-async def deprecated(sio: AsyncServer, event: str, alternative: str = None) -> None:
-    """
-    Handle deprecated event by emitting an error event.
-    Args:
-        sio (AsyncServer): The Socket.IO server instance.
-        event (str): The deprecated event name.
-        alternative (str): An alternative event to use.
-    """
-    deprecated_message = f'The event "{event}" is deprecated and will be removed in future releases.'
-    if alternative:
-        deprecated_message += f' Use the event "{alternative}" instead.'
-    await sio.emit('error', data={'message': deprecated_message})
-
-
-async def alerts(sio: AsyncServer, sid: str, message: str, allert_type: AllertsEnum) -> None:
-    """
-    Emit an alert message.
-    Args:
-        sio (AsyncServer): The Socket.IO server instance.
-        sid (str): The session ID of the user.
-        message (str): The alert message to emit.
-        allert_type (str): The type of the alert (INFO, SUCCESS, WARNING, ERROR)
-    """
-    await sio.emit('alerts', data={'message': message, 'type': allert_type.name}, to=sid)
-
-
-def parse_files_to_ignore(data: str) -> dict[str: list[str]]:
+def parse_files_to_ignore(data: str) -> dict[str : list[str]]:
     """
     Parses a string with names and break lines to ignore and returns a dictionary
     containing the names, directories, and extensions.
