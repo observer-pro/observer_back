@@ -30,7 +30,14 @@ class SocketIOHandler(logging.Handler):
     def emit(self, record):
         try:
             msg = self.format(record)
-            asyncio.create_task(self.sio.emit('log', {'message': msg}))
+            sid = record.__dict__.get('sid', None)
+            room_id = record.__dict__.get('room_id', None)
+            if sid is not None:
+                asyncio.create_task(self.sio.emit('log', {'message': msg}, to=sid))
+            elif room_id is not None:
+                asyncio.create_task(self.sio.emit('log', {'message': msg}, room=room_id))
+            else:
+                asyncio.create_task(self.sio.emit('log', {'message': msg}))
         except Exception:
             self.handleError(record)
 

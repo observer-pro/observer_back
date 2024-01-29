@@ -25,7 +25,7 @@ async def solution_from_ai(sid: str, data: dict[str, str]) -> None:
     if not content or not code:
         await utils.handle_bad_request('Task content and code are required!')
         return
-    logger.debug('Code with a question were sent to AI')
+    logger.debug('Code with a question were sent to AI', extra={'sid': sid})
 
     client = ExternalAPIClient()
     ai_response: dict = await client.get_solution({'content': content, 'code': code})
@@ -35,4 +35,4 @@ async def solution_from_ai(sid: str, data: dict[str, str]) -> None:
         return
 
     await sio.emit('solution/ai', data={'content': ai_response['content']}, to=sid)
-    logger.debug(f'The AI solution was sent to the student with id: {sid}!')
+    logger.debug(f'The AI solution was sent to the user with SID {sid}!', extra={'sid': sid})

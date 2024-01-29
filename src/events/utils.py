@@ -5,6 +5,7 @@ from enum import Enum
 from socketio import AsyncServer
 
 from src.config import PLUGIN_VERSION
+from src.exceptions import RoomNotFoundError
 from src.managers import room_manager, user_manager
 
 
@@ -42,9 +43,6 @@ class Utils:
                 return False
             if key in ('room_id', 'user_id') and not isinstance(data[key], int):
                 await self.handle_bad_request(f'{key} should be an integer')
-                return False
-            if key == 'room_id' and not room_manager.get_room_by_id(data[key]):
-                await self.handle_bad_request(f'No room with id: {data[key]}')
                 return False
         return True
 
@@ -100,8 +98,9 @@ class Utils:
 
     async def create_test_room(self) -> None:
         """Create room for tests"""
-        room = room_manager.get_room_by_id(1000)
-        if not room:
+        try:
+            room_manager.get_room_by_id(1000)
+        except RoomNotFoundError:
             user = user_manager.create_user('TESTROOMHOST', name='Mama Zmeya', role='host')
             test_room = room_manager.create_room(host=user)
             self.logger.debug('Test room created with id: %s', test_room.rid)

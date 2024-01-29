@@ -1,4 +1,5 @@
 from src.components import logger, sio
+from src.exceptions import RoomNotFoundError, UserNotFoundError
 from src.managers import room_manager, user_manager
 
 from .utils import Utils
@@ -35,16 +36,19 @@ async def send_sharing_status(data: dict, command: str) -> None:
         return
 
     room_id = data.get('room_id')
-    room = room_manager.get_room_by_id(room_id)
-
     user_id = data.get('user_id')
-    receiver = room.get_user_by_id(user_id)
-    if not receiver:
-        await utils.handle_bad_request(f'No such user id {user_id} in the room')
+    try:
+        room = room_manager.get_room_by_id(room_id)
+        receiver = room.get_user_by_id(user_id)
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
+        return
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User {user_id} in room {room_id} not found!')
         return
 
     await sio.emit(f'sharing/{command}', data={}, to=receiver.sid)
-    logger.debug(f'Host send {command} to the user {user_id}')
+    logger.debug(f'Host sent sharing/{command} to the user {user_id}', extra={'sid': room.host.sid})
 
 
 async def send_sharing_code(sid: str, data: dict, command: str) -> None:
@@ -59,9 +63,16 @@ async def send_sharing_code(sid: str, data: dict, command: str) -> None:
         return
 
     room_id = data.get('room_id')
-    room = room_manager.get_room_by_id(room_id)
-    user = user_manager.get_user_by_sid(sid)
+    try:
+        room = room_manager.get_room_by_id(room_id)
+        user = user_manager.get_user_by_sid(sid)
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
+        return
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User with sid {sid} not found!')
+        return
     data.update({'user_id': user.uid})
 
     await sio.emit(f'sharing/{command}', data=data, to=room.host.sid)
-    logger.debug(f'sharing/{command} to host with id: {room.host.uid}')
+    logger.debug(f'User {user.uid} sent sharing/{command} to host {room.host.uid}', extra={'sid': user.sid})
