@@ -1,4 +1,5 @@
 from src.components import logger, sio
+from src.exceptions import RoomNotFoundError, UserNotFoundError
 from src.managers import room_manager, user_manager
 from src.models import SignalEnum
 from src.scraper.notion_scraper import get_exercises_from_notion
@@ -37,18 +38,25 @@ async def steps_all(sid: str, data: list[dict[str, str]]) -> None:
         item for item in data if 'content' in item and item['content'] is not None and item['content'].strip() != ''
     ]
 
-    host = user_manager.get_user_by_sid(sid)
-    room_id = host.room
-    room = room_manager.get_room_by_id(room_id)
+    try:
+        host = user_manager.get_user_by_sid(sid)
+        room_id = host.room
+        room = room_manager.get_room_by_id(room_id)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'Host with sid {sid} not found!')
+        return
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
+        return
 
     room.steps = cleaned_data
     await sio.emit('steps/all', data=cleaned_data, room=room_id)
-    logger.debug(f'Tasks were sent to all students in the room {room_id}!')
+    logger.debug(f'Tasks were sent to all students in the room {room_id}!', extra={'sid': sid})
 
 
 async def steps_status_to_client(sid: str, data: dict[str, int | dict[str, str]]) -> None:
     """
-    Sends steps from the host to the client with user_id
+    Sends statuses from the host to the client with user_id
     Args:
         sid (str): The session ID of the user.
         data (dict[str, int | dict[str, str]]): The data containing user_id and the steps.
@@ -57,14 +65,24 @@ async def steps_status_to_client(sid: str, data: dict[str, int | dict[str, str]]
         return
 
     steps: dict = data.get('steps')
-    host = user_manager.get_user_by_sid(sid)
-    room_id = host.room
-    room = room_manager.get_room_by_id(room_id)
-    user_id = data.get('user_id')
-    user = room.get_user_by_id(user_id)
-    if not user:
-        await utils.handle_bad_request(f'No such user with id {user_id} in the room_manager {room_id}!')
+    try:
+        host = user_manager.get_user_by_sid(sid)
+        room_id = host.room
+        room = room_manager.get_room_by_id(room_id)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'Host with sid {sid} not found!')
         return
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
+        return
+
+    user_id = data.get('user_id')
+    try:
+        user = room.get_user_by_id(user_id)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User {user_id} in room {room_id} not found!')
+        return
+
     if not user.steps:
         user.steps = steps
     else:
@@ -79,12 +97,12 @@ async def steps_status_to_client(sid: str, data: dict[str, int | dict[str, str]]
                 user.steps[step] = status
 
     await sio.emit('steps/status/to_client', data=steps, to=user.sid)
-    logger.debug(f'Statuses were sent to the client id {user.uid} in the room {room_id}!')
+    logger.debug(f'Statuses were sent to user {user.uid} in the room {room_id}!', extra={'sid': sid})
 
 
 async def steps_status_to_mentor(sid: str, data: dict[str, str]) -> None:
     """
-    Sends steps from the student to the host of the room.
+    Sends statuses from the student to the host of the room.
     Args:
         sid (str): The session ID of the user.
         data (dict): The data containing the statuses of the tasks.
@@ -92,14 +110,21 @@ async def steps_status_to_mentor(sid: str, data: dict[str, str]) -> None:
     if not await utils.validate_data(data):
         return
 
-    user = user_manager.get_user_by_sid(sid)
-    room_id = user.room
-    room = room_manager.get_room_by_id(room_id)
+    try:
+        user = user_manager.get_user_by_sid(sid)
+        room_id = user.room
+        room = room_manager.get_room_by_id(room_id)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User with sid {sid} not found!')
+        return
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
+        return
 
     user.steps = data
 
     await sio.emit('steps/status/to_mentor', data={'user_id': user.uid, 'steps': data}, to=room.host.sid)
-    logger.debug(f'Statuses were sent from the client id {user.uid} to the host of the room {room_id}!')
+    logger.debug(f'Statuses were sent from user {user.uid} to the host of the room {room_id}!', extra={'sid': sid})
 
 
 async def steps_table(sid: str, data) -> None:
@@ -109,13 +134,20 @@ async def steps_table(sid: str, data) -> None:
         sid (str): The session ID of the host.
         data (dict): not using
     """
-    host = user_manager.get_user_by_sid(sid)
-    room_id = host.room
-    room = room_manager.get_room_by_id(room_id)
-    table = [{'user_id': user.uid, 'steps': user.steps} for user in room.users if user.steps]
+    try:
+        host = user_manager.get_user_by_sid(sid)
+        room_id = host.room
+        room = room_manager.get_room_by_id(room_id)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'Host with sid {sid} not found!')
+        return
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
+        return
 
+    table = [{'user_id': user.uid, 'steps': user.steps} for user in room.users.values() if user.steps]
     await sio.emit('steps/table', data=table, to=sid)
-    logger.debug(f'Steps table was sent to host {host.uid}!')
+    logger.debug(f'Steps table was sent to host {host.uid}!', extra={'sid': sid})
 
 
 async def steps_import(sid: str, data: dict[str, str]) -> None:
@@ -132,8 +164,6 @@ async def steps_import(sid: str, data: dict[str, str]) -> None:
     result = await get_exercises_from_notion(url)
 
     if isinstance(result, list):
-        room_id = user_manager.get_user_by_sid(sid).room
-        room = room_manager.get_room_by_id(room_id)
         steps = [
             {
                 'name': str(count),
@@ -150,11 +180,20 @@ async def steps_import(sid: str, data: dict[str, str]) -> None:
             await utils.handle_bad_request('Notion has no steps!')
             return
 
-        room.steps = steps
-
-        await sio.emit('steps/load', data=steps, to=sid)
-        await utils.alerts(sid, 'Задания были успешно загружены из Notion!', AlertsEnum.SUCCESS)
-        logger.debug('The steps were loaded from Notion and sent to the host!')
+        try:
+            host = user_manager.get_user_by_sid(sid)
+            room_id = host.room
+            room = room_manager.get_room_by_id(room_id)
+            room.steps = steps
+            await sio.emit('steps/load', data=steps, to=sid)
+            await utils.alerts(sid, 'Задания были успешно загружены из Notion!', AlertsEnum.SUCCESS)
+        except UserNotFoundError:
+            await utils.handle_bad_request(f'Host with sid {sid} not found!')
+            return
+        except RoomNotFoundError:
+            await utils.handle_bad_request(f'Room {room_id} not found!')
+            return
+        logger.debug('The steps were loaded from Notion and sent to the host!', extra={'sid': sid})
     else:
         await utils.alerts(
             sid,
@@ -177,20 +216,28 @@ async def exercise(sid: str, data: dict) -> None:
         return
 
     content = data.get('content', '')
-    room_id = user_manager.get_user_by_sid(sid).room
-    room = room_manager.get_room_by_id(room_id)
+    try:
+        host = user_manager.get_user_by_sid(sid)
+        room_id = host.room
+        room = room_manager.get_room_by_id(room_id)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'Host with sid {sid} not found!')
+        return
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
+        return
 
     room.exercise = content  # Save exercise
     await sio.emit('exercise', {'content': content}, room=room_id)
     await utils.deprecated('exercise', 'steps/all')
-    logger.debug(f'The exercise was sent to all students in the room {room_id}!')
+    logger.debug(f'The exercise was sent to all students in the room {room_id}!', extra={'sid': sid})
 
 
 async def exercise_feedback(sid: str, data: dict) -> None:
     """
     Deprecated from v1.1.0
 
-    Sends an exercise feedback to a user via socketio.
+    Sends an exercise feedback to the user.
     Args:
         sid (str): not using
         data (dict): The data containing the user's room_id, user_id, and accept status (true or false).
@@ -199,18 +246,21 @@ async def exercise_feedback(sid: str, data: dict) -> None:
         return
 
     room_id = data.get('room_id')
-    room = room_manager.get_room_by_id(room_id)
-
-    user_id = data.get('user_id', None)
-    user = room.get_user_by_id(user_id)
-    if not user:
-        await utils.handle_bad_request(f'No such user with id {user_id}!')
+    user_id = data.get('user_id')
+    try:
+        room = room_manager.get_room_by_id(room_id)
+        user = room.get_user_by_id(user_id)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User {user_id} in room {room_id} not found!')
+        return
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
         return
 
     accepted = data.get('accepted')
     await sio.emit('exercise/feedback', data={'accepted': accepted}, to=user.sid)
     await utils.deprecated('exercise/feedback')
-    logger.debug(f'Feedback "{accepted}" was sent to the user with id: {user.uid}')
+    logger.debug(f'Feedback "{accepted}" was sent to the user with id: {user.uid}', extra={'sid': sid})
 
 
 async def exercise_reset(sid: str, data: dict) -> None:
@@ -222,11 +272,16 @@ async def exercise_reset(sid: str, data: dict) -> None:
         sid (str): The session ID of the user.
         data (dict): not using
     """
-    room_id = user_manager.get_user_by_sid(sid).room
+    try:
+        host = user_manager.get_user_by_sid(sid)
+        room_id = host.room
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'Host with sid {sid} not found!')
+        return
 
     await sio.emit('exercise/reset', data={}, room=room_id)
     await utils.deprecated('exercise/reset')
-    logger.debug(f'The exercise/reset was sent to all students in the room {room_id}!')
+    logger.debug(f'The exercise/reset was sent to all students in the room {room_id}!', extra={'sid': sid})
 
 
 async def signal(sid: str, data: dict) -> None:
@@ -252,10 +307,17 @@ async def signal(sid: str, data: dict) -> None:
         await utils.handle_bad_request(f'Invalid signal: {signal_value}')
         return
 
-    user = user_manager.get_user_by_sid(sid)
-    user.signal = signal_value
-    room = room_manager.get_room_by_id(user.room)
+    try:
+        user = user_manager.get_user_by_sid(sid)
+        user.signal = signal_value
+        room = room_manager.get_room_by_id(user.room)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User with sid {sid} not found!')
+        return
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {user.room} not found!')
+        return
 
     await sio.emit('signal', data=data, to=room.host.sid)
     await utils.deprecated('signal')
-    logger.debug(f'The user {user.uid} sent a {signal_value} signal to host with id {room.host.uid}.')
+    logger.debug(f'User {user.uid} sent a {signal_value} signal to host {room.host.uid}.', extra={'sid': sid})

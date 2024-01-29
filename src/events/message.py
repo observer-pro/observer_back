@@ -1,4 +1,5 @@
 from src.components import logger, sio
+from src.exceptions import RoomNotFoundError, UserNotFoundError
 from src.managers import room_manager, user_manager
 from src.models import Message
 
@@ -34,17 +35,21 @@ async def send_message(sender_sid: str, data: dict, to: str) -> None:
         return
 
     room_id = data.get('room_id')
-    room = room_manager.get_room_by_id(room_id)
     content = data.get('content', '')
+    try:
+        room = room_manager.get_room_by_id(room_id)
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found.')
+        return
 
     if to == 'to_client':
         receiver_id = data.get('user_id', None)
-        receiver = room.get_user_by_id(receiver_id)
-
-        if not receiver:
-            await utils.handle_bad_request(f'No such user id {receiver_id} in the room')
+        try:
+            receiver = room.get_user_by_id(receiver_id)
+        except UserNotFoundError:
+            await utils.handle_bad_request(f'User {receiver_id} in room {room_id} not found.')
             return
-    else:
+    else:  # to_mentor
         receiver_id = room.host.uid
         receiver = room.host
 
@@ -66,7 +71,7 @@ async def send_message(sender_sid: str, data: dict, to: str) -> None:
         },
         to=receiver.sid,
     )
-    logger.debug(f'User {sender.uid} has sent message to user {receiver_id}')
+    logger.debug(f'User {sender.uid} sent message to user {receiver_id}', extra={'sid': sender.sid})
 
 
 async def load_user_messages(sid: str, data: dict) -> None:
@@ -81,17 +86,22 @@ async def load_user_messages(sid: str, data: dict) -> None:
 
     user_id = data.get('user_id')
 
-    host = user_manager.get_user_by_sid(sid)
-    room = room_manager.get_room_by_id(host.room)
-    if not room:
-        await utils.handle_bad_request(f'No such room with id {host.room}!')
+    try:
+        host = user_manager.get_user_by_sid(sid)
+        room = room_manager.get_room_by_id(host.room)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'Host with sid {sid} not found.')
+        return
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {host.room} not found.')
         return
 
-    user = room.get_user_by_id(user_id)
-    if not user:
-        await utils.handle_bad_request(f'No such user with id {user_id} in the Room {host.room}!')
+    try:
+        user = room.get_user_by_id(user_id)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User with id {user_id} in room {host.room} not found!')
         return
 
     user_messages = user.get_user_messages()
     await sio.emit('message/user', data={'user_id': user_id, 'messages': user_messages}, to=sid)
-    logger.debug(f'User {user_id} messages have been sent to the host {host.uid}')
+    logger.debug(f'User {user_id} messages have been sent to the host {host.uid}', extra={'sid': sid})

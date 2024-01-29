@@ -23,7 +23,6 @@ class RoomManager:
 
     def create_room(self, host: User) -> Room:
         room = Room(self._id, host)
-        room.enter_user_to_room(host)
         host.room = self._id
         self._rooms[self._id] = room
         self._id += 1
@@ -32,11 +31,14 @@ class RoomManager:
     def delete_room(self, room_id: int) -> None:
         try:
             del self._rooms[room_id]
-        except KeyError as e:
-            raise RoomNotFoundError(f"Room with id '{room_id}' not found.") from e
+        except KeyError:
+            raise RoomNotFoundError() from None
 
-    def get_room_by_id(self, room_id: int) -> Room | None:
-        return self._rooms.get(room_id)
+    def get_room_by_id(self, room_id: int) -> Room:
+        try:
+            return self._rooms[room_id]
+        except KeyError:
+            raise RoomNotFoundError() from None
 
     def get_rooms_log(self) -> dict[str, int | list[dict]]:
         return {
@@ -76,11 +78,14 @@ class UserManager:
     def delete_user(self, sid: str) -> None:
         try:
             del self._users[sid]
-        except KeyError as e:
-            raise UserNotFoundError(f"User with sid '{sid}' not found.") from e
+        except KeyError:
+            raise UserNotFoundError() from None
 
-    def get_user_by_sid(self, sid: str) -> User | None:
-        return self._users.get(sid)
+    def get_user_by_sid(self, sid: str) -> User:
+        try:
+            return self._users[sid]
+        except KeyError:
+            raise UserNotFoundError() from None
 
     def set_new_sid(self, old_sid: str, new_sid: str) -> User:
         try:
@@ -89,8 +94,8 @@ class UserManager:
             user.sid = new_sid
             self._users[new_sid] = user
             return user
-        except KeyError as e:
-            raise UserNotFoundError(f"User with sid '{old_sid}' not found.") from e
+        except KeyError:
+            raise UserNotFoundError() from None
 
     def get_all_users(self) -> list[User]:
         return list(self._users.values())

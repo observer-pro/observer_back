@@ -4,6 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from src.components import logger, sio
+from src.exceptions import RoomNotFoundError, UserNotFoundError
 from src.managers import room_manager, user_manager
 from src.models import StatusEnum
 
@@ -24,7 +25,7 @@ def register_connection_events() -> None:
 async def connect(sid, data):
     if os.getenv('SERVER') == 'dev':
         await utils.create_test_room()
-    logger.debug(f'User {sid} connected')
+    logger.debug(f'User {sid} connected', extra={'sid': sid})
 
 
 async def disconnect_user(sid: str) -> None:
@@ -33,17 +34,25 @@ async def disconnect_user(sid: str) -> None:
     Args:
         sid (str): The session ID of the user.
     """
-    user = user_manager.get_user_by_sid(sid)
+    try:
+        user = user_manager.get_user_by_sid(sid)
+    except UserNotFoundError:
+        return
+
     if user and user.room:
         user.status = StatusEnum.OFFLINE
-        room = room_manager.get_room_by_id(user.room)
+        try:
+            room = room_manager.get_room_by_id(user.room)
+        except RoomNotFoundError:
+            await utils.handle_bad_request(f'Room {user.room} not found.')
+            return
 
         if user.role == 'host':  # teacher disconnected
             await sio.emit('message', {'message': 'The teacher is offline!'}, room=room.rid)
-            logger.debug(f'Teacher {user.uid} disconnected from room id {room.rid})')
+            logger.debug(f'Teacher {user.uid} disconnected from room id {room.rid})', extra={'room_id': room.rid})
         else:  # student disconnected
             await sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
-            logger.debug(f'Student {user.uid} disconnected from room {room.rid})')
+            logger.debug(f'Student {user.uid} disconnected from room {room.rid})', extra={'sid': room.host.sid})
 
 
 async def room_kill(sid: str, data: dict) -> None:
@@ -56,13 +65,19 @@ async def room_kill(sid: str, data: dict) -> None:
     if not await utils.validate_data(data, 'user_id'):
         return
 
-    host = user_manager.get_user_by_sid(sid)
-    room = room_manager.get_room_by_id(host.room)
-
     user_id = data.get('user_id')
-    user_to_kill = room.get_user_by_id(user_id)
-    if not user_to_kill:
-        await utils.handle_bad_request(f'No such user with id {user_id} in the room {host.room}')
+    try:
+        host = user_manager.get_user_by_sid(sid)
+        if host.role != 'host':
+            raise UserNotFoundError
+        room_id = host.room
+        room = room_manager.get_room_by_id(room_id)
+        user_to_kill = room.get_user_by_id(user_id)
+        await sio.leave_room(user_to_kill.sid, room_id)
+        await sio.disconnect(user_to_kill.sid)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User {user_id} not found.')
         return
-    await sio.leave_room(user_to_kill.sid, host.room)
-    await sio.disconnect(user_to_kill.sid)
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found.')
+        return

@@ -42,7 +42,7 @@ async def room_create(sid: str, data: dict) -> None:
     user = user_manager.create_user(sid, name=hostname, role='host')
     room = room_manager.create_room(host=user)
     await sio.emit('room/update', data=room.get_room_data(), to=sid)
-    logger.debug(f'User {user.uid} created room {room.rid}!')
+    logger.debug(f'User {user.uid} created room {room.rid}!', extra={'sid': sid})
 
 
 async def room_join(sid: str, data: dict) -> None:
@@ -59,15 +59,20 @@ async def room_join(sid: str, data: dict) -> None:
     await utils.check_version(sid, version)
 
     room_id = data.get('room_id')
-    room = room_manager.get_room_by_id(room_id)
-    username = data.get('name', 'Guest ' + ''.join(choice('0123456789') for _ in range(10)))
-
-    user = user_manager.get_user_by_sid(sid)
+    try:
+        room = room_manager.get_room_by_id(room_id)
+        user = user_manager.get_user_by_sid(sid)
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
+        return
+    except UserNotFoundError:
+        user = None
 
     if user and user.room is not None:
-        await utils.handle_bad_request(f'User {user.uid} already in room {user.room}')
+        await utils.handle_bad_request(f'User {user.uid} already in room {user.room}!')
         return
 
+    username = data.get('name', 'Guest ' + ''.join(choice('0123456789') for _ in range(10)))
     user = user_manager.create_user(sid, name=username, role='client', room_id=room_id)
     room.enter_user_to_room(user)
     await sio.enter_room(sid, room_id)
@@ -92,7 +97,7 @@ async def room_join(sid: str, data: dict) -> None:
 
     # Update data for teacher
     await sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
-    logger.debug(f'User {user.uid} has joined the room {room_id}!')
+    logger.debug(f'User {user.uid} has joined the room {room_id}!', extra={'sid': sid})
 
 
 async def reconnect(sid: str, data: dict, command: str) -> None:
@@ -107,32 +112,35 @@ async def reconnect(sid: str, data: dict, command: str) -> None:
         return
 
     room_id = data.get('room_id')
-    room = room_manager.get_room_by_id(room_id)
-
-    user_id = data.get('user_id', None)
-    user = room.get_user_by_id(user_id)
-    if not user:
-        await utils.handle_bad_request(f'No such user with id {user_id}!')
+    user_id = data.get('user_id')
+    try:
+        room = room_manager.get_room_by_id(room_id)
+        user = room.get_user_by_id(user_id)
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
+        return
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User {user_id} in room {room_id} not found!')
         return
 
     try:
         user = user_manager.set_new_sid(old_sid=user.sid, new_sid=sid)  # Save the new SID after reconnect
         user.status = StatusEnum.ONLINE  # Update user status
     except UserNotFoundError:
-        await utils.handle_bad_request(f"Can't change SID. No such user with id {user_id}!")
+        await utils.handle_bad_request(f"Can't change SID. User with id '{user_id}' not found.")
         return
 
     if command == 'rejoin':  # Student rejoin
         await sio.enter_room(sid, room_id)
         await sio.emit('room/join', data={'user_id': user.uid, 'room_id': room_id}, to=sid)
-        logger.debug(f'Student {user.name} with id {user_id} reconnected!')
+        logger.debug(f'User {user.name} with id {user_id} reconnected!', extra={'sid': sid})
     else:  # Teacher rehost
         # Send messages to students
         await sio.emit('message', {'message': 'The teacher reconnected!'}, room=room_id)
         # Send imported steps to host if they exist
         if room.steps:
             await sio.emit('steps/load', data=room.steps, to=room.host.sid)
-        logger.debug(f'Host {user.name} with id {user_id} reconnected!')
+        logger.debug(f'Host {user.name} with id {user_id} reconnected!', extra={'sid': room.host.sid})
 
     # Update data for teacher
     await sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
@@ -149,20 +157,30 @@ async def room_leave(sid: str, data: dict) -> None:
         return
 
     room_id = data.get('room_id')
-    room = room_manager.get_room_by_id(room_id)
-    user = user_manager.get_user_by_sid(sid)
-
-    if not user:
-        await utils.handle_bad_request(f'No user registered with sid: {sid}')
+    try:
+        room = room_manager.get_room_by_id(room_id)
+        user = user_manager.get_user_by_sid(sid)
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
+        return
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User with sid {sid} not found!')
         return
 
-    if not room.remove_user_from_room(user.uid):
-        await utils.handle_bad_request(f'User is not in the room {user.room}')
+    try:
+        room.remove_user_from_room(user.uid)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User is not in the room {room_id}')
         return
 
-    await sio.leave_room(sid, room_id)
+    try:
+        await sio.leave_room(sid, room_id)
+        user_manager.delete_user(sid)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f"Something went wrong. Can't leave the room {room_id}!")
+        return
     await sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
-    logger.debug(f'User {user.uid} has left the room {room_id}!')
+    logger.debug(f'User {user.uid} has left the room {room_id}!', extra={'sid': room.host.sid})
 
 
 async def room_close(sid: str, data: dict) -> None:
@@ -175,6 +193,15 @@ async def room_close(sid: str, data: dict) -> None:
     if not await utils.validate_data(data, 'room_id'):
         return
 
+    try:
+        user = user_manager.get_user_by_sid(sid)
+        if user.role != 'host':
+            await utils.handle_bad_request(f'User with sid {sid} has no rights to close the room!')
+            return
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User with sid {sid} not found!')
+        return
+
     room_id = data.get('room_id')
     # Send room/closed to students
     await sio.emit('room/closed', {'message': 'Room closed!'}, room=room_id)
@@ -182,11 +209,20 @@ async def room_close(sid: str, data: dict) -> None:
     await asyncio.sleep(2)
     await sio.close_room(room_id)
     try:
+        room = room_manager.get_room_by_id(room_id)
+        for user in room.users.values():
+            try:
+                user_manager.delete_user(user.sid)
+            except UserNotFoundError:
+                pass
         room_manager.delete_room(room_id)
-    except RoomNotFoundError:
-        await utils.handle_bad_request(f'No such room with id {room_id}!')
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User with sid {sid} not found!')
         return
-    logger.debug(f'Room {room_id} has been closed!')
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
+        return
+    logger.debug(f'Room {room_id} has been closed!')  # TODO sent to host or not?
 
 
 async def room_log(sid: str, data: dict) -> None:
@@ -197,4 +233,7 @@ async def room_log(sid: str, data: dict) -> None:
         data (dict): not using.
     """
     log = room_manager.get_rooms_log()
+    log.update(
+        {'users': [f'Room {user.room}: {user.name}, {user.status.name}' for user in user_manager.get_all_users()]}
+    )
     await sio.emit('room/log', data=log, to=sid)
