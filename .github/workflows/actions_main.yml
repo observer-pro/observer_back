@@ -39,7 +39,7 @@ jobs:
           password: ${{ secrets.PROD2_PASSWORD }}
           script: |
             cd /home/deploy/observer
-            source venv/bin/activate
+            . venv/bin/activate
             pip install --no-cache-dir -r requirements.txt --default-timeout=30
             sudo systemctl start observer.service
 
