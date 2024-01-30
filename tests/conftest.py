@@ -1,83 +1,117 @@
-import pytest
-import socketio
+import pytest_asyncio
+from socketio import AsyncClient
 
 
-@pytest.fixture(scope='session')
-def host_client():
-    client = socketio.Client()
-    client.connect('http://localhost:5000')
-    yield client
-    client.disconnect()
+async def client_generator():
+    user = AsyncClient()
+    await user.connect('http://127.0.0.1:5000')
+    yield user
+    await user.disconnect()
 
 
-@pytest.fixture
-def host(host_client):
-    return host_client
+@pytest_asyncio.fixture
+async def host():
+    yield await client_generator().__anext__()
 
 
-@pytest.fixture(scope='session')
-def user_client():
-    client = socketio.Client()
-    client.connect('http://localhost:5000')
-    yield client
-    client.disconnect()
+@pytest_asyncio.fixture
+async def client():
+    yield await client_generator().__anext__()
 
 
-@pytest.fixture
-def client(user_client):
-    return user_client
+def create_response_fixture(user, event_name, type_of_data='dict'):
+    response = {} if type_of_data == 'dict' else []
 
-
-@pytest.fixture
-def room_update(host):
-    response = {}
-
-    @host.on('room/update')
-    def room_data(data):
-        response.update(data)
+    @user.on(event_name)
+    async def handle_event(data):
+        nonlocal response
+        if type_of_data == 'dict':
+            response.update(data)
+        else:
+            response.extend(data)
 
     return response
 
 
-@pytest.fixture
-def room_join(client):
-    response = {}
-
-    @client.on('room/join')
-    def room_data(data):
-        response.update(data)
-
-    return response
+@pytest_asyncio.fixture
+async def room_update(host: AsyncClient):
+    return create_response_fixture(host, 'room/update')
 
 
-@pytest.fixture
-def message_to_client(client):
-    response = {}
-
-    @client.on('message/to_client')
-    def room_data(data):
-        response.update(data)
-
-    return response
+@pytest_asyncio.fixture
+async def room_join(client: AsyncClient):
+    return create_response_fixture(client, 'room/join')
 
 
-@pytest.fixture
-def message_to_mentor(host):
-    response = {}
-
-    @host.on('message/to_mentor')
-    def room_data(data):
-        response.update(data)
-
-    return response
+@pytest_asyncio.fixture
+async def room_closed(client: AsyncClient):
+    return create_response_fixture(client, 'room/closed')
 
 
-@pytest.fixture
-def error(host):
-    response = {}
+@pytest_asyncio.fixture
+async def settings(client: AsyncClient):
+    return create_response_fixture(client, 'settings')
 
-    @host.on('error')
-    def room_data(data):
-        response.update(data)
 
-    return response
+@pytest_asyncio.fixture
+async def steps_all(client: AsyncClient):
+    return create_response_fixture(client, 'steps/all', type_of_data='list')
+
+
+@pytest_asyncio.fixture
+async def steps_table(host: AsyncClient):
+    return create_response_fixture(host, 'steps/table', type_of_data='list')
+
+
+@pytest_asyncio.fixture
+async def steps_to_mentor(host: AsyncClient):
+    return create_response_fixture(host, 'steps/status/to_mentor')
+
+
+@pytest_asyncio.fixture
+async def steps_to_client(client: AsyncClient):
+    return create_response_fixture(client, 'steps/status/to_client')
+
+
+@pytest_asyncio.fixture
+async def message_to_client(client: AsyncClient):
+    return create_response_fixture(client, 'message/to_client')
+
+
+@pytest_asyncio.fixture
+async def message_to_mentor(host: AsyncClient):
+    return create_response_fixture(host, 'message/to_mentor')
+
+
+@pytest_asyncio.fixture
+async def get_user_messages(host: AsyncClient):
+    return create_response_fixture(host, 'message/user')
+
+
+@pytest_asyncio.fixture
+async def message(client: AsyncClient):
+    return create_response_fixture(client, 'message')
+
+
+@pytest_asyncio.fixture
+async def error(host: AsyncClient):
+    return create_response_fixture(host, 'error')
+
+
+@pytest_asyncio.fixture
+async def alerts(client: AsyncClient):
+    return create_response_fixture(client, 'alerts')
+
+
+class TestContext:
+    __test__ = False
+
+    def __init__(self):
+        self.room_id = 0
+        self.host_id = 0
+        self.client_id = 0
+
+
+@pytest_asyncio.fixture(scope='session', autouse=True)
+async def context():
+    return TestContext()

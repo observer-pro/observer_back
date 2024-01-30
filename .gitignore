@@ -38,7 +38,8 @@ node_modules/
 *.pyc
 
 # Miscellaneous
-requirements_dev.txt
 *.bak
 *.log
 *.sqlite3
+load_test/
+/openai.http

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Room # {{ room_id }} statistics!</title>
+    <style>
+        body {
+            background-color: #1f1f21;
+            font-family: Roboto, sans-serif;
+            font-size: 22px;
+            color: azure;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .statistics {
+            text-align: center;
+            border: 3px solid rgb(47, 49, 52);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .cell {
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            padding: 0 20px 20px 20px;
+        }
+
+        td {
+            padding: 20px;
+        }
+
+        th {
+            padding: 5px;
+            text-align: center;
+            color: rgba(89, 134, 210, 0.75);
+        }
+    </style>
+</head>
+<body>
+<div class="statistics">
+    <div class="cell">
+        <h2>Room # {{ room_id }} statistics!</h2>
+        <table>
+            <thead>
+            <tr>
+                <th rowspan="2">Username</th>
+                <th colspan="{{ data[0]['steps']|length }}">Tasks</th>
+                <th rowspan="2">Result</th>
+            </tr>
+            <tr>
+                {% for step in data[0]["steps"] %}
+                <th>{{ step }}</th>
+                {% endfor %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for user in data %}
+            <tr>
+                <td>{{ user.username }}</td>
+                {% for result in user.steps.values() %}
+                    {% if result in ["DONE", "ACCEPTED"] %}
+                        <td>✅</td>
+                    {% else %}
+                        <td>❌</td>
+                    {% endif %}
+                {% endfor %}
+                {% if user.result%}
+                    <td>{{ user.result }}%</td>
+                {% else %}
+                    <td>-</td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>

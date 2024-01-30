@@ -1,0 +1,63 @@
+name: Deploy to the stage
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Stop the app service
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.STAGE_SERVER_IP }}
+          username: ${{ secrets.STAGE_USER }}
+          password: ${{ secrets.STAGE_PASSWORD }}
+          script: |
+            sudo systemctl stop observer.service
+
+      - name: Deploy
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.STAGE_SERVER_IP }}
+          username: ${{ secrets.STAGE_USER }}
+          password: ${{ secrets.STAGE_PASSWORD }}
+          source: "src,requirements.txt"
+          target: /home/deploy/observer
+
+      - name: Activate venv, install requirements, and run service
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.STAGE_SERVER_IP }}
+          username: ${{ secrets.STAGE_USER }}
+          password: ${{ secrets.STAGE_PASSWORD }}
+          script: |
+            cd /home/deploy/observer
+            source venv/bin/activate
+            pip install --no-cache-dir -r requirements.txt --default-timeout=30
+            sudo systemctl start observer.service
+
+      - name: Check and restart services if needed
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.STAGE_SERVER_IP }}
+          username: ${{ secrets.STAGE_USER }}
+          password: ${{ secrets.STAGE_PASSWORD }}
+          script: |
+            # Check and restart observer.service if not active
+            if ! sudo systemctl is-active observer.service; then
+              echo "Observer service is not active. Restarting..."
+              sudo systemctl restart observer.service
+            fi
+            
+            # Check and restart Nginx if not active
+            if ! sudo systemctl is-active nginx; then
+              echo "Nginx is not active. Restarting..."
+              sudo systemctl restart nginx
+            fi
