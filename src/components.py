@@ -42,7 +42,6 @@ class SocketIOHandler(logging.Handler):
             self.handleError(record)
 
 
-# Создание файлового обработчика логов
 file_handler = logging.FileHandler(Path(__file__).parent.parent / 'log.log')
 file_handler.setLevel(logging.ERROR)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')

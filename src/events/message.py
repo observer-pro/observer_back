@@ -63,12 +63,7 @@ async def send_message(sender_sid: str, data: dict, to: str) -> None:
 
     await sio.emit(
         f'message/{to}',
-        data={
-            'user_id': receiver_id if to == 'to_client' else sender.uid,
-            'room_id': room_id,
-            'content': content,
-            'datetime': message.created_at,
-        },
+        data=message.serialize(),
         to=receiver.sid,
     )
     logger.debug(f'User {sender.uid} sent message to user {receiver_id}', extra={'sid': sender.sid})
@@ -93,7 +88,7 @@ async def load_user_messages(sid: str, data: dict) -> None:
         await utils.handle_bad_request(f'Host with sid {sid} not found.')
         return
     except RoomNotFoundError:
-        await utils.handle_bad_request(f'Room {host.room} not found.')
+        await utils.handle_bad_request('These host has no room.')
         return
 
     try:
