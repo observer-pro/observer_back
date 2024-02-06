@@ -6,7 +6,7 @@ from src.exceptions import RoomNotFoundError, UserNotFoundError
 from src.managers import room_manager, user_manager
 from src.models import StatusEnum
 
-from .utils import Utils
+from .utils import AlertsEnum, Utils
 
 utils = Utils(sio, logger)
 
@@ -72,9 +72,19 @@ async def room_join(sid: str, data: dict) -> None:
         await utils.handle_bad_request(f'User {user.uid} already in room {user.room}!')
         return
 
-    username = data.get('name', 'Guest ' + ''.join(choice('0123456789') for _ in range(10)))
+    username = data.get('name', 'Guest' + ''.join(choice('0123456789') for _ in range(10)))
+    if username in room.usernames:
+        await utils.alerts(
+            sid,
+            f'Username {username} is already used in room {room_id}!',
+            AlertsEnum.ERROR,
+        )
+        await utils.handle_bad_request(f'Username {username} is already used in room {room_id}!')
+        return
+
     user = user_manager.create_user(sid, name=username, role='client', room_id=room_id)
-    room.enter_user_to_room(user)
+    room.save_username(username)
+    room.add_user_to_room(user)
     await sio.enter_room(sid, room_id)
 
     # Message to student
