@@ -88,10 +88,16 @@ async def steps_status_to_client(sid: str, data: dict[str, int | dict[str, str]]
     else:
         for step, status in steps.items():
             if step in user.steps:
-                if status == 'ACCEPTED' and user.steps[step] != status:
+                if status == 'NONE' and user.steps[step] == 'DONE':
                     await utils.alerts(
                         user.sid,
-                        f'Your solution to Task {step} is accepted!',
+                        f'Task {step} solution declined!',
+                        AlertsEnum.WARNING,
+                    )
+                elif status == 'ACCEPTED' and user.steps[step] != status:
+                    await utils.alerts(
+                        user.sid,
+                        f'Task {step} solution accepted!',
                         AlertsEnum.SUCCESS,
                     )
                 user.steps[step] = status
