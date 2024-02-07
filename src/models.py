@@ -50,7 +50,7 @@ class Room:
             user.room = None
             self.usernames.remove(user.name)
             del self.users[user_id]
-        except KeyError:
+        except (KeyError, ValueError):
             raise UserNotFoundError() from None
 
 
