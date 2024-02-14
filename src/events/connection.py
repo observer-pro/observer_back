@@ -84,5 +84,5 @@ async def room_kill(sid: str, data: dict) -> None:
         await utils.handle_bad_request(f'User {user_id} not found.')
         return
     except RoomNotFoundError:
-        await utils.handle_bad_request(f'Room {room_id} not found.')
+        await utils.handle_bad_request('Room not found.')
         return

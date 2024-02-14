@@ -26,7 +26,7 @@ def register_settings_events() -> None:
             await utils.handle_bad_request(f'Host with sid {sid} not found!')
             return
         except RoomNotFoundError:
-            await utils.handle_bad_request(f'Room {host.room} not found!')
+            await utils.handle_bad_request('Room not found!')
             return
 
         try:

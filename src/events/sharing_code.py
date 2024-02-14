@@ -10,11 +10,7 @@ utils = Utils(sio, logger)
 def register_sharing_code_events() -> None:
     @sio.on('sharing/start')
     async def sharing_start(sid, data):
-        await send_sharing_status(data, command='start')
-
-    @sio.on('sharing/end')
-    async def sharing_end(sid, data):
-        await send_sharing_status(data, command='end')
+        await send_sharing_start(data)
 
     @sio.on('sharing/code_send')
     async def sharing_code_send(sid, data):
@@ -24,13 +20,17 @@ def register_sharing_code_events() -> None:
     async def sharing_code_update(sid, data):
         await send_sharing_code(sid, data, command='code_update')
 
+    # deprecated from v1.2.13
+    @sio.on('sharing/end')
+    async def sharing_end(sid, data):
+        await utils.deprecated('sharing/end')
 
-async def send_sharing_status(data: dict, command: str) -> None:
+
+async def send_sharing_start(data: dict) -> None:
     """
-    Send sharing status to a user in a specific room.
+    Send sharing/start to a user in a specific room.
     Args:
         data (dict): The data containing the room ID and user ID.
-        command (str): The command to send ('start' or 'end').
     """
     if not await utils.validate_data(data, 'room_id', 'user_id'):
         return
@@ -39,7 +39,7 @@ async def send_sharing_status(data: dict, command: str) -> None:
     user_id = data.get('user_id')
     try:
         room = room_manager.get_room_by_id(room_id)
-        receiver = room.get_user_by_id(user_id)
+        user = room.get_user_by_id(user_id)
     except RoomNotFoundError:
         await utils.handle_bad_request(f'Room {room_id} not found!')
         return
@@ -47,8 +47,9 @@ async def send_sharing_status(data: dict, command: str) -> None:
         await utils.handle_bad_request(f'User {user_id} in room {room_id} not found!')
         return
 
-    await sio.emit(f'sharing/{command}', data={}, to=receiver.sid)
-    logger.debug(f'Host sent sharing/{command} to the user {user_id}', extra={'sid': room.host.sid})
+    await sio.emit('sharing/end', data={}, room=room_id, skip_sid=user.sid)
+    await sio.emit('sharing/start', data={}, to=user.sid)
+    logger.debug(f'Host sent sharing/start to the user {user_id}', extra={'sid': room.host.sid})
 
 
 async def send_sharing_code(sid: str, data: dict, command: str) -> None:

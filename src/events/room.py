@@ -38,7 +38,7 @@ async def room_create(sid: str, data: dict) -> None:
     if not await utils.validate_data(data):
         return
 
-    hostname = data.get('name', None)
+    hostname = data.get('name')
     user = user_manager.create_user(sid, name=hostname, role='host')
     room = room_manager.create_room(host=user)
     await sio.emit('room/update', data=room.get_room_data(), to=sid)
@@ -147,6 +147,7 @@ async def reconnect(sid: str, data: dict, command: str) -> None:
     else:  # Teacher rehost
         # Send messages to students
         await sio.emit('message', {'message': 'The teacher reconnected!'}, room=room_id)
+        await sio.emit('sharing/end', data={}, room=room_id)
         # Send imported steps to host if they exist
         if room.steps:
             await sio.emit('steps/load', data=room.steps, to=room.host.sid)
