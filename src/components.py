@@ -18,7 +18,7 @@ sio.instrument(
         'username': os.getenv('SOCKET_ADMIN_USERNAME'),
         'password': os.getenv('SOCKET_ADMIN_PASSWORD'),
     },
-    mode='development' if os.getenv('SERVER') == 'dev' else 'production',
+    mode='development',
 )
 
 
