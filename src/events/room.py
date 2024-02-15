@@ -257,8 +257,11 @@ async def error_from_client(sid: str, data: dict) -> None:
         room = room_manager.get_room_by_id(room_id)
         user = room.get_user_by_id(user_id)
         username = user.name
+        if isinstance(content, list):
+            content = '\n'.join(content)
         await utils.handle_bad_request(
-            f'User "{username}" in room {room_id}, stack trace: {content}, filepath: {file_path}, function: {function}'
+            f'User "{username}" in room {room_id}\n'
+            f'Stack trace:\n{content}\nfilepath: {file_path}\nfunction: {function}'
         )
     except RoomNotFoundError:
         await utils.handle_bad_request(f'Room {room_id} not found!')
