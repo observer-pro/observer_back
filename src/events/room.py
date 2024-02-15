@@ -18,6 +18,7 @@ def register_room_events() -> None:
     sio.on('room/leave', room_leave)
     sio.on('room/close', room_close)
     sio.on('room/log', room_log)
+    sio.on('error/from_client', error_from_client)
 
     @sio.on('room/rejoin')
     async def room_rejoin(sid, data):
@@ -234,6 +235,37 @@ async def room_close(sid: str, data: dict) -> None:
         await utils.handle_bad_request(f'Room {room_id} not found!')
         return
     logger.debug(f'Room {room_id} has been closed!')  # TODO sent to host or not?
+
+
+async def error_from_client(sid: str, data: dict) -> None:
+    """
+    Error from client.
+    Args:
+        sid (str): The session ID of the user.
+        data (dict): The data containing error message.
+    """
+    if not await utils.validate_data(data, 'room_id', 'user_id'):
+        return
+
+    room_id = data.get('room_id')
+    user_id = data.get('user_id')
+    content = data.get('content', '...')
+    file_path = data.get('path', '...')
+    function = data.get('function', '...')
+
+    try:
+        room = room_manager.get_room_by_id(room_id)
+        user = room.get_user_by_id(user_id)
+        username = user.name
+        await utils.handle_bad_request(
+            f'User "{username}" in room {room_id}, stack trace: {content}, filepath: {file_path}, function: {function}'
+        )
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Room {room_id} not found!')
+        return
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'User {user_id} not found!')
+        return
 
 
 async def room_log(sid: str, data: dict) -> None:
