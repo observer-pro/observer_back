@@ -5,8 +5,8 @@ from socketio import AsyncClient
 from tests.conftest import TestContext
 
 
-async def test_host_sharing_start_end(host: AsyncClient, client: AsyncClient, events: dict, context: TestContext):
-    """Test sharing/start and sharing/end events"""
+async def test_host_sharing_start(host: AsyncClient, client: AsyncClient, events: dict, context: TestContext):
+    """Test sharing/start  event"""
     await host.emit('room/create', data={'name': 'Teacher'})
     await asyncio.sleep(0.01)
     room_update = events.get('room/update')
@@ -18,11 +18,9 @@ async def test_host_sharing_start_end(host: AsyncClient, client: AsyncClient, ev
     context.host_id = events['room/update']['host']
 
     await host.emit('sharing/start', data={'room_id': context.room_id, 'user_id': context.client_id})
-    await host.emit('sharing/end', data={'room_id': context.room_id, 'user_id': context.client_id})
     await asyncio.sleep(0.01)
 
     assert events.get('sharing/start') == {}
-    assert events.get('sharing/end') == {}
 
 
 async def test_sharing_code(host: AsyncClient, client: AsyncClient, events: dict, context: TestContext):

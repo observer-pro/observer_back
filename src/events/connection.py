@@ -43,11 +43,11 @@ async def disconnect_user(sid: str) -> None:
         user.status = StatusEnum.OFFLINE
         try:
             room = room_manager.get_room_by_id(user.room)
+            if user.role != 'host':
+                room.remove_user_from_room(user.uid)  # contradicts with room/rejoin (not realised on plugin)
         except RoomNotFoundError:
             await utils.handle_bad_request(f'Room {user.room} not found.')
             return
-        try:
-            room.remove_user_from_room(user.uid)  # contradicts with room/rejoin (not realised on plugin)
         except UserNotFoundError:
             await utils.handle_bad_request(f'Something went wrong with removing user {user.uid} from room.')
             return

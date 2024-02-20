@@ -146,6 +146,7 @@ async def reconnect(sid: str, data: dict, command: str) -> None:
         await sio.emit('room/join', data={'user_id': user.uid, 'room_id': room_id}, to=sid)
         logger.debug(f'User {user.name} with id {user_id} reconnected!', extra={'sid': sid})
     else:  # Teacher rehost
+        user.room = room_id
         # Send messages to students
         await sio.emit('message', {'message': 'The teacher reconnected!'}, room=room_id)
         await sio.emit('sharing/end', data={}, room=room_id)
