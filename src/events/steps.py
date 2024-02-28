@@ -35,7 +35,12 @@ async def steps_all(sid: str, data: list[dict[str, str]]) -> None:
         return
 
     cleaned_data = [
-        item for item in data if 'content' in item and item['content'] is not None and item['content'].strip() != ''
+        item
+        for item in data
+        if 'content' in item
+        and item['content'] is not None
+        and item['content'].strip() != ''
+        and (item['name'] in {str(i) for i in range(1, 17)} or item['name'] == 'theory')
     ]
 
     try:
@@ -302,7 +307,7 @@ async def signal(sid: str, data: dict) -> None:
     if not await utils.validate_data(data, 'user_id'):
         return
 
-    signal_value = data.get('value', None)
+    signal_value = data.get('value')
     if not signal_value:
         await utils.handle_bad_request('No signal received')
         return

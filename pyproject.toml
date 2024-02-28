@@ -60,7 +60,7 @@ quote-style = "single"
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
     "S101", # asserts allowed in tests...
     "S105", # Possible hardcoded password
