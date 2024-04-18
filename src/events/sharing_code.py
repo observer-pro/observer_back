@@ -32,6 +32,8 @@ async def send_sharing_start(data: dict) -> None:
     Args:
         data (dict): The data containing the room ID and user ID.
     """
+    event = 'sharing/start'
+
     if not await utils.validate_data(data, 'room_id', 'user_id'):
         return
 
@@ -41,15 +43,15 @@ async def send_sharing_start(data: dict) -> None:
         room = room_manager.get_room_by_id(room_id)
         user = room.get_user_by_id(user_id)
     except RoomNotFoundError:
-        await utils.handle_bad_request(f'Room {room_id} not found!')
+        await utils.handle_bad_request(f'Event {event}. Room {room_id} not found!')
         return
     except UserNotFoundError:
-        await utils.handle_bad_request(f'User {user_id} in room {room_id} not found!')
+        await utils.handle_bad_request(f'Event {event}. User {user_id} in room {room_id} not found!')
         return
 
     await sio.emit('sharing/end', data={}, room=room_id, skip_sid=user.sid)
-    await sio.emit('sharing/start', data={}, to=user.sid)
-    logger.debug(f'Host sent sharing/start to the user {user_id}', extra={'sid': room.host.sid})
+    await sio.emit(event, data={}, to=user.sid)
+    logger.debug(f'Host sent {event} to the user {user_id}', extra={'sid': room.host.sid})
 
 
 async def send_sharing_code(sid: str, data: dict, command: str) -> None:
@@ -60,6 +62,8 @@ async def send_sharing_code(sid: str, data: dict, command: str) -> None:
         data (dict): The data to be sent.
         command (str): The command to be sent ('code_send' or 'code_update').
     """
+    event = f'sharing/{command}'
+
     if not await utils.validate_data(data, 'room_id'):
         return
 
@@ -68,12 +72,12 @@ async def send_sharing_code(sid: str, data: dict, command: str) -> None:
         room = room_manager.get_room_by_id(room_id)
         user = user_manager.get_user_by_sid(sid)
     except RoomNotFoundError:
-        await utils.handle_bad_request(f'Room {room_id} not found!')
+        await utils.handle_bad_request(f'Event: {event}. Room {room_id} not found!')
         return
     except UserNotFoundError:
-        await utils.handle_bad_request(f'User with sid {sid} not found!')
+        await utils.handle_bad_request(f'Event: {event}. User with sid {sid} not found!')
         return
     data.update({'user_id': user.uid})
 
-    await sio.emit(f'sharing/{command}', data=data, to=room.host.sid)
+    await sio.emit(event, data=data, to=room.host.sid)
     logger.debug(f'User {user.uid} sent sharing/{command} to host {room.host.uid}', extra={'sid': user.sid})

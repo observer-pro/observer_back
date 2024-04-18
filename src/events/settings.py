@@ -16,6 +16,8 @@ def register_settings_events() -> None:
             sid (str): The session ID of the user.
             data (dict): The data containing the settings.
         """
+        event = 'settings'
+
         if not await utils.validate_data(data):
             return
 
@@ -23,10 +25,10 @@ def register_settings_events() -> None:
             host = user_manager.get_user_by_sid(sid)
             room = room_manager.get_room_by_id(host.room)
         except UserNotFoundError:
-            await utils.handle_bad_request(f'Host with sid {sid} not found!')
+            await utils.handle_bad_request(f'Event: {event}. Host with sid {sid} not found!')
             return
         except RoomNotFoundError:
-            await utils.handle_bad_request('Room not found!')
+            await utils.handle_bad_request(f'Event: {event}. Room not found!')
             return
 
         try:
@@ -35,9 +37,9 @@ def register_settings_events() -> None:
                 return
             result = parse_files_to_ignore(files_to_ignore)
         except Exception as e:
-            await utils.handle_bad_request(f'Failed to parse files to ignore: {e}')
+            await utils.handle_bad_request(f'Event: {event}. Failed to parse files to ignore: {e}')
             return
 
         room.settings = result  # Save to the Room.settings
-        await sio.emit('settings', data=result, room=host.room)
+        await sio.emit(event, data=result, room=host.room)
         logger.debug(f'Settings were sent to all students in the room {host.room}!', extra={'sid': sid})

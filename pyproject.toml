@@ -1,7 +1,7 @@
 [tool.ruff]
 line-length = 120
-target-version = "py310"
-select = [
+target-version = "py311"
+lint.select = [
     # Pyflakes
     "F",
     # Pycodestyle
@@ -34,10 +34,10 @@ select = [
     # Pylint
     "PL",
 ]
-extend-ignore = [
+lint.extend-ignore = [
     "PLR2004", "PLR0913", "S311", "SIM117", "Q000", "Q001", "Q003", "ISC001", "COM812", "SIM105", "S110"
 ]
-fixable = ["ALL"]
+lint.fixable = ["ALL"]
 show-fixes = true
 include = ["*.py"]
 exclude = [
