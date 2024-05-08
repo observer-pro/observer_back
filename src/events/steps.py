@@ -138,6 +138,8 @@ async def steps_status_to_mentor(sid: str, data: dict[str, str]) -> None:
         await utils.handle_bad_request(f'Event: {event}. Room not found!')
         return
 
+    if user.steps == data:  # if nothing was changed -> no need to send steps to mentor
+        return
     user.steps = data
 
     await sio.emit(event, data={'user_id': user.uid, 'steps': data}, to=room.host.sid)
