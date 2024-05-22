@@ -71,8 +71,8 @@ class Utils:
         Args:
             message (str): The error message.
         """
-        await self.sio.emit('error', data={'message': f'Bad Request: {message}'})
-        self.logger.error('Bad request: %s', message)
+        await self.sio.emit('error', data={'message': f'Error: {message}'})
+        self.logger.error('%s', message)
 
     async def deprecated(self, event: str, alternative: str = None) -> None:
         """

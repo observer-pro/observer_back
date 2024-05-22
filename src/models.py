@@ -8,21 +8,19 @@ from src.exceptions import UserNotFoundError
 class Room:
     """Room Class"""
 
-    __slots__ = ('rid', 'host', 'users', 'settings', 'steps', 'exercise')
+    __slots__ = ('rid', 'host', 'users', 'usernames', 'settings', 'steps', 'exercise')
 
     def __init__(self, room_id: int, host: 'User'):
         self.rid = room_id
         self.host = host
         self.users: dict[int, User] = {host.uid: host}
+        self.usernames: list[str] = []
         self.settings: dict[str : list[str]] = {}
         self.steps: list[dict[str, str]] = []
         self.exercise: str = ''  # deprecated from the v1.1.0
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.rid}, users count: {len(self.users)}>'
-
-    def enter_user_to_room(self, user: 'User'):
-        self.users[user.uid] = user
 
     def serialize_users(self) -> list[dict[str, ...]]:
         return [user.serialize() for user in self.users.values() if user.status != StatusEnum.OFFLINE]
@@ -40,12 +38,19 @@ class Room:
         except KeyError:
             raise UserNotFoundError() from None
 
+    def save_username(self, username: str) -> None:
+        self.usernames.append(username)
+
+    def add_user_to_room(self, user: 'User') -> None:
+        self.users[user.uid] = user
+
     def remove_user_from_room(self, user_id: int) -> None:
         try:
             user = self.users[user_id]
             user.room = None
+            self.usernames.remove(user.name)
             del self.users[user_id]
-        except KeyError:
+        except (KeyError, ValueError):
             raise UserNotFoundError() from None
 
 

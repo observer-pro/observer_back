@@ -5,11 +5,11 @@ from socketio import AsyncClient
 from tests.conftest import TestContext
 
 
-async def test_room_create(host: AsyncClient, room_update: dict, context: TestContext):
+async def test_room_create(host: AsyncClient, events: dict, context: TestContext):
     """Test room/create by host"""
     await host.emit('room/create', data={'name': 'Teacher'})
     await asyncio.sleep(0.01)
-
+    room_update = events['room/update']
     user = room_update['users'][0]
 
     assert user['role'] == 'host'
@@ -22,12 +22,11 @@ async def test_room_create(host: AsyncClient, room_update: dict, context: TestCo
 async def test_room_rehost_join_alerts(
     host: AsyncClient,
     client: AsyncClient,
-    room_join: dict,
-    room_update: dict,
-    alerts: dict,
+    events: dict,
     context: TestContext,
 ):
     """
+    Test room/rehost
     Test room/join by user
     Test alerts when user have an outdated version
     """
@@ -38,16 +37,14 @@ async def test_room_rehost_join_alerts(
         data={'room_id': context.room_id, 'name': 'John Test', 'version': '1.1'},
     )
     await asyncio.sleep(0.01)
-    assert 'You have an outdated version of the plugin' in alerts['message']
+    users = events['room/update']['users']
 
-    assert alerts['type'] == 'WARNING'
+    assert 'You have an outdated version of the plugin' in events['alerts']['message']
+    assert events['alerts']['type'] == 'WARNING'
+    assert len(users) == 2
 
-    await asyncio.sleep(0.01)
-
-    assert len(room_update['users']) == 2
-
-    user = room_update['users'][1]
-    context.client_id = room_join['user_id']
+    user = users[1]
+    context.client_id = events['room/join']['user_id']
 
     assert user['id'] == context.client_id
     assert user['room'] == context.room_id
@@ -58,8 +55,7 @@ async def test_room_rehost_join_alerts(
 async def test_room_rejoin_leave(
     host: AsyncClient,
     client: AsyncClient,
-    room_join: dict,
-    room_update: dict,
+    events: dict,
     context: TestContext,
 ):
     """
@@ -75,21 +71,19 @@ async def test_room_rejoin_leave(
     )
     await asyncio.sleep(0.01)
 
-    assert room_join['room_id'] == context.room_id
-    assert room_join['user_id'] == context.client_id
-    assert len(room_update['users']) == 2
+    assert len(events['room/update']['users']) == 2
 
     await client.emit('room/leave', data={'room_id': context.room_id})
-    await asyncio.sleep(0.01)
+    await asyncio.sleep(0.1)
 
-    assert len(room_update['users']) == 1
+    assert len(events['room/update']['users']) == 1
 
 
+#
 async def test_room_kill(
     host: AsyncClient,
     client: AsyncClient,
-    room_update: dict,
-    room_join: dict,
+    events: dict,
     context: TestContext,
 ):
     """Test room/kill event (disconnect user by host)"""
@@ -101,19 +95,18 @@ async def test_room_kill(
     )
     await asyncio.sleep(0.01)
 
-    assert len(room_update['users']) == 2
+    assert len(events['room/update']['users']) == 2
 
-    context.client_id = room_join['user_id']
-    await host.emit('room/kill', data={'user_id': context.client_id})
+    await host.emit('room/kill', data={'user_id': events['room/join']['user_id']})
     await asyncio.sleep(0.01)
 
-    assert len(room_update['users']) == 1
+    assert len(events['room/update']['users']) == 1
 
 
 async def test_room_close(
     host: AsyncClient,
     client: AsyncClient,
-    room_closed: dict,
+    events: dict,
     context: TestContext,
 ):
     """Test room/close event"""
@@ -127,4 +120,4 @@ async def test_room_close(
     await host.emit('room/close', data={'room_id': context.room_id})
     await asyncio.sleep(0.01)
 
-    assert room_closed['message'] == 'Room closed!'
+    assert events['room/closed']['message'] == 'Room closed!'

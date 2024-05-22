@@ -6,7 +6,7 @@ from src.exceptions import RoomNotFoundError, UserNotFoundError
 from src.managers import room_manager, user_manager
 from src.models import StatusEnum
 
-from .utils import Utils
+from .utils import AlertsEnum, Utils
 
 utils = Utils(sio, logger)
 
@@ -18,6 +18,7 @@ def register_room_events() -> None:
     sio.on('room/leave', room_leave)
     sio.on('room/close', room_close)
     sio.on('room/log', room_log)
+    sio.on('error/from_client', error_from_client)
 
     @sio.on('room/rejoin')
     async def room_rejoin(sid, data):
@@ -38,7 +39,7 @@ async def room_create(sid: str, data: dict) -> None:
     if not await utils.validate_data(data):
         return
 
-    hostname = data.get('name', None)
+    hostname = data.get('name')
     user = user_manager.create_user(sid, name=hostname, role='host')
     room = room_manager.create_room(host=user)
     await sio.emit('room/update', data=room.get_room_data(), to=sid)
@@ -52,6 +53,7 @@ async def room_join(sid: str, data: dict) -> None:
         sid (str): The session ID of the user.
         data (dict): The data containing room_id.
     """
+    event = 'room/join'
     if not await utils.validate_data(data, 'room_id'):
         return
 
@@ -63,22 +65,32 @@ async def room_join(sid: str, data: dict) -> None:
         room = room_manager.get_room_by_id(room_id)
         user = user_manager.get_user_by_sid(sid)
     except RoomNotFoundError:
-        await utils.handle_bad_request(f'Room {room_id} not found!')
+        await utils.handle_bad_request(f'Event: {event}. Room {room_id} not found!')
         return
     except UserNotFoundError:
         user = None
 
     if user and user.room is not None:
-        await utils.handle_bad_request(f'User {user.uid} already in room {user.room}!')
+        await utils.handle_bad_request(f'Event: {event}. User {user.uid} already in room {user.room}!')
         return
 
-    username = data.get('name', 'Guest ' + ''.join(choice('0123456789') for _ in range(10)))
+    username = data.get('name', 'Guest' + ''.join(choice('0123456789') for _ in range(10)))
+    if username in room.usernames:
+        await utils.alerts(
+            sid,
+            f'Username {username} is already used in room {room_id}!',
+            AlertsEnum.ERROR,
+        )
+        await utils.handle_bad_request(f'Event: {event}. Username {username} is already used in room {room_id}!')
+        return
+
     user = user_manager.create_user(sid, name=username, role='client', room_id=room_id)
-    room.enter_user_to_room(user)
+    room.save_username(username)
+    room.add_user_to_room(user)
     await sio.enter_room(sid, room_id)
 
     # Message to student
-    await sio.emit('room/join', data={'user_id': user.uid, 'room_id': room_id}, to=sid)
+    await sio.emit(event, data={'user_id': user.uid, 'room_id': room_id}, to=sid)
 
     # Deprecated from v1.1.0
     if room.exercise:
@@ -108,6 +120,8 @@ async def reconnect(sid: str, data: dict, command: str) -> None:
         data (dict): The data containing room_id and user_id.
         command (str): The command to execute ('rejoin' or 'rehost').
     """
+    event = f'room/{command}'
+
     if not await utils.validate_data(data, 'room_id', 'user_id'):
         return
 
@@ -117,17 +131,17 @@ async def reconnect(sid: str, data: dict, command: str) -> None:
         room = room_manager.get_room_by_id(room_id)
         user = room.get_user_by_id(user_id)
     except RoomNotFoundError:
-        await utils.handle_bad_request(f'Room {room_id} not found!')
+        await utils.handle_bad_request(f'Event: {event}. Room {room_id} not found!')
         return
     except UserNotFoundError:
-        await utils.handle_bad_request(f'User {user_id} in room {room_id} not found!')
+        await utils.handle_bad_request(f'Event: {event}. User {user_id} in room {room_id} not found!')
         return
 
     try:
         user = user_manager.set_new_sid(old_sid=user.sid, new_sid=sid)  # Save the new SID after reconnect
         user.status = StatusEnum.ONLINE  # Update user status
     except UserNotFoundError:
-        await utils.handle_bad_request(f"Can't change SID. User with id '{user_id}' not found.")
+        await utils.handle_bad_request(f"Event: {event}. Can't change SID. User with id '{user_id}' not found.")
         return
 
     if command == 'rejoin':  # Student rejoin
@@ -135,8 +149,10 @@ async def reconnect(sid: str, data: dict, command: str) -> None:
         await sio.emit('room/join', data={'user_id': user.uid, 'room_id': room_id}, to=sid)
         logger.debug(f'User {user.name} with id {user_id} reconnected!', extra={'sid': sid})
     else:  # Teacher rehost
+        user.room = room_id
         # Send messages to students
         await sio.emit('message', {'message': 'The teacher reconnected!'}, room=room_id)
+        await sio.emit('sharing/end', data={}, room=room_id)
         # Send imported steps to host if they exist
         if room.steps:
             await sio.emit('steps/load', data=room.steps, to=room.host.sid)
@@ -153,6 +169,8 @@ async def room_leave(sid: str, data: dict) -> None:
         sid (str): The session ID of the user.
         data (dict): The data containing room_id.
     """
+    event = 'room/leave'
+
     if not await utils.validate_data(data, 'room_id'):
         return
 
@@ -161,23 +179,23 @@ async def room_leave(sid: str, data: dict) -> None:
         room = room_manager.get_room_by_id(room_id)
         user = user_manager.get_user_by_sid(sid)
     except RoomNotFoundError:
-        await utils.handle_bad_request(f'Room {room_id} not found!')
+        await utils.handle_bad_request(f'Event: {event}. Room {room_id} not found!')
         return
     except UserNotFoundError:
-        await utils.handle_bad_request(f'User with sid {sid} not found!')
+        await utils.handle_bad_request(f'Event: {event}. User with sid {sid} not found!')
         return
 
     try:
         room.remove_user_from_room(user.uid)
     except UserNotFoundError:
-        await utils.handle_bad_request(f'User is not in the room {room_id}')
+        await utils.handle_bad_request(f'Event: {event}. User is not in the room {room_id}')
         return
 
     try:
         await sio.leave_room(sid, room_id)
         user_manager.delete_user(sid)
     except UserNotFoundError:
-        await utils.handle_bad_request(f"Something went wrong. Can't leave the room {room_id}!")
+        await utils.handle_bad_request(f"Event: {event}. Something went wrong. Can't leave the room {room_id}!")
         return
     await sio.emit('room/update', data=room.get_room_data(), to=room.host.sid)
     logger.debug(f'User {user.uid} has left the room {room_id}!', extra={'sid': room.host.sid})
@@ -190,16 +208,18 @@ async def room_close(sid: str, data: dict) -> None:
         sid (str): not using.
         data (dict): The data containing 'room_id'.
     """
+    event = 'room/close'
+
     if not await utils.validate_data(data, 'room_id'):
         return
 
     try:
         user = user_manager.get_user_by_sid(sid)
         if user.role != 'host':
-            await utils.handle_bad_request(f'User with sid {sid} has no rights to close the room!')
+            await utils.handle_bad_request(f'Event: {event}. User with sid {sid} has no rights to close the room!')
             return
     except UserNotFoundError:
-        await utils.handle_bad_request(f'User with sid {sid} not found!')
+        await utils.handle_bad_request(f'Event: {event}. User with sid {sid} not found!')
         return
 
     room_id = data.get('room_id')
@@ -217,12 +237,48 @@ async def room_close(sid: str, data: dict) -> None:
                 pass
         room_manager.delete_room(room_id)
     except UserNotFoundError:
-        await utils.handle_bad_request(f'User with sid {sid} not found!')
+        await utils.handle_bad_request(f'Event: {event}. User with sid {sid} not found!')
         return
     except RoomNotFoundError:
-        await utils.handle_bad_request(f'Room {room_id} not found!')
+        await utils.handle_bad_request(f'Event: {event}. Room {room_id} not found!')
         return
     logger.debug(f'Room {room_id} has been closed!')  # TODO sent to host or not?
+
+
+async def error_from_client(sid: str, data: dict) -> None:
+    """
+    Error from client.
+    Args:
+        sid (str): The session ID of the user.
+        data (dict): The data containing error message.
+    """
+    event = 'error/from_client'
+
+    if not await utils.validate_data(data, 'room_id', 'user_id'):
+        return
+
+    room_id = data.get('room_id')
+    user_id = data.get('user_id')
+    content = data.get('content', '...')
+    file_path = data.get('path', '...')
+    function = data.get('function', '...')
+
+    try:
+        room = room_manager.get_room_by_id(room_id)
+        user = room.get_user_by_id(user_id)
+        username = user.name
+        if isinstance(content, list):
+            content = '\n'.join(content)
+        await utils.handle_bad_request(
+            f'User "{username}" in room {room_id}\n'
+            f'Stack trace:\n{content}\nfilepath: {file_path}\nfunction: {function}'
+        )
+    except RoomNotFoundError:
+        await utils.handle_bad_request(f'Event: {event}. Room {room_id} not found!')
+        return
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'Event: {event}. User {user_id} not found!')
+        return
 
 
 async def room_log(sid: str, data: dict) -> None:

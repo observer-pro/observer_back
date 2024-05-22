@@ -31,6 +31,8 @@ async def send_message(sender_sid: str, data: dict, to: str) -> None:
             'to_client' - from host to user
             'to_mentor' - from user to host
     """
+    event = f'message/{to}'
+
     if not await utils.validate_data(data, 'room_id'):
         return
 
@@ -39,21 +41,26 @@ async def send_message(sender_sid: str, data: dict, to: str) -> None:
     try:
         room = room_manager.get_room_by_id(room_id)
     except RoomNotFoundError:
-        await utils.handle_bad_request(f'Room {room_id} not found.')
+        await utils.handle_bad_request(f'Event: {event}. Room {room_id} not found.')
         return
 
     if to == 'to_client':
-        receiver_id = data.get('user_id', None)
+        receiver_id = data.get('user_id')
         try:
             receiver = room.get_user_by_id(receiver_id)
         except UserNotFoundError:
-            await utils.handle_bad_request(f'User {receiver_id} in room {room_id} not found.')
+            await utils.handle_bad_request(f'Event: {event}. User {receiver_id} in room {room_id} not found.')
             return
     else:  # to_mentor
         receiver_id = room.host.uid
         receiver = room.host
 
-    sender = user_manager.get_user_by_sid(sender_sid)
+    try:
+        sender = user_manager.get_user_by_sid(sender_sid)
+    except UserNotFoundError:
+        await utils.handle_bad_request(f'Event: {event}. User {sender_sid} (sender) not found.')
+        return
+
     message = Message(sender_id=sender.uid, receiver_id=receiver_id, content=content)
 
     if to == 'to_client':
@@ -76,6 +83,8 @@ async def load_user_messages(sid: str, data: dict) -> None:
         sid (str): The session ID of the client.
         data (dict): The data containing the 'user_id'
     """
+    event = 'message/user'
+
     if not await utils.validate_data(data, 'user_id'):
         return
 
@@ -85,16 +94,16 @@ async def load_user_messages(sid: str, data: dict) -> None:
         host = user_manager.get_user_by_sid(sid)
         room = room_manager.get_room_by_id(host.room)
     except UserNotFoundError:
-        await utils.handle_bad_request(f'Host with sid {sid} not found.')
+        await utils.handle_bad_request(f'Event: {event}. Host with sid {sid} not found.')
         return
     except RoomNotFoundError:
-        await utils.handle_bad_request('These host has no room.')
+        await utils.handle_bad_request(f'Event: {event}. These host has no room.')
         return
 
     try:
         user = room.get_user_by_id(user_id)
     except UserNotFoundError:
-        await utils.handle_bad_request(f'User with id {user_id} in room {host.room} not found!')
+        await utils.handle_bad_request(f'Event: {event}. User with id {user_id} in room {host.room} not found!')
         return
 
     user_messages = user.get_user_messages()

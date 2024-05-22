@@ -39,12 +39,21 @@ async def disconnect_user(sid: str) -> None:
     except UserNotFoundError:
         return
 
+    event = 'disconnect'
+
     if user and user.room:
         user.status = StatusEnum.OFFLINE
         try:
             room = room_manager.get_room_by_id(user.room)
+            if user.role != 'host':
+                room.remove_user_from_room(user.uid)  # contradicts with room/rejoin (not realised on plugin)
         except RoomNotFoundError:
-            await utils.handle_bad_request(f'Room {user.room} not found.')
+            await utils.handle_bad_request(f'Event: {event}. Room {user.room} not found.')
+            return
+        except UserNotFoundError:
+            await utils.handle_bad_request(
+                f'Event: {event}. Something went wrong with removing user {user.uid} from room.'
+            )
             return
 
         if user.role == 'host':  # teacher disconnected
@@ -62,6 +71,8 @@ async def room_kill(sid: str, data: dict) -> None:
         sid (str): The session ID of the user.
         data (dict): The data containing 'user_id'.
     """
+    event = 'room/kill'
+
     if not await utils.validate_data(data, 'user_id'):
         return
 
@@ -76,8 +87,8 @@ async def room_kill(sid: str, data: dict) -> None:
         await sio.leave_room(user_to_kill.sid, room_id)
         await sio.disconnect(user_to_kill.sid)
     except UserNotFoundError:
-        await utils.handle_bad_request(f'User {user_id} not found.')
+        await utils.handle_bad_request(f'Event: {event}. User {user_id} not found.')
         return
     except RoomNotFoundError:
-        await utils.handle_bad_request(f'Room {room_id} not found.')
+        await utils.handle_bad_request(f'Event: {event}. Room not found.')
         return

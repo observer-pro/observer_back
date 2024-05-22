@@ -18,12 +18,14 @@ async def solution_from_ai(sid: str, data: dict[str, str]) -> None:
         sid (str): The session ID of the user.
         data (dict): The data containing the solution.
     """
+    event = 'solution/ai'
+
     if not await utils.validate_data(data):
         return
     content = data.get('content')
     code = data.get('code')
     if not content or not code:
-        await utils.handle_bad_request('Task content and code are required!')
+        await utils.handle_bad_request(f'Event: {event}. Task content and code are required!')
         return
     logger.debug('Code with a question were sent to AI', extra={'sid': sid})
 

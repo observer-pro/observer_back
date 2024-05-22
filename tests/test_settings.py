@@ -8,13 +8,12 @@ from tests.conftest import TestContext
 async def test_settings(
     host: AsyncClient,
     client: AsyncClient,
-    room_join: dict,
-    room_update: dict,
-    settings: dict,
+    events: dict,
     context: TestContext,
 ):
     await host.emit('room/create', data={'name': 'Teacher'})
     await asyncio.sleep(0.01)
+    room_update = events['room/update']
     context.room_id = room_update['id']
     context.host_id = room_update['host']
     await client.emit(
@@ -22,7 +21,7 @@ async def test_settings(
         data={'room_id': context.room_id, 'name': 'Json Statham'},
     )
     await asyncio.sleep(0.01)
-    context.client_id = room_join['user_id']
+    context.client_id = events['room/join']['user_id']
 
     ignore_settings = {
         'files_to_ignore': '# Byte-compiled / optimized / DLL files\n__pycache__/\n*.py[cod]\n*$py.class'
@@ -32,6 +31,8 @@ async def test_settings(
     }
     await host.emit('settings', data=ignore_settings)
     await asyncio.sleep(0.01)
+
+    settings = events['settings']
 
     assert set(settings['names']) == {'.Python', 'test.py', '.installed.cfg'}
     assert set(settings['dirs']) == {

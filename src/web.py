@@ -9,7 +9,7 @@ from src.exceptions import RoomNotFoundError
 from src.managers import room_manager
 
 fast_app = FastAPI()
-templates = Jinja2Templates(directory=Path(__file__).parent / 'templates')
+templates = Jinja2Templates(directory=str(Path(__file__).parent / 'templates'))
 
 
 @fast_app.get('/roomstats/{room_id}', response_class=HTMLResponse)
