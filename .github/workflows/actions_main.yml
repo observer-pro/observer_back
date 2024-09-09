@@ -1,67 +1,35 @@
-name: Deploy on servers
-
+name: Deploy
 on:
   push:
     branches:
       - main
-
 jobs:
-  deploy_on_servers:
-    runs-on: ubuntu-22.04
-
-    strategy:
-      matrix:
-        server: [ 'PROD1', 'PROD2' ]
-
+  deploy:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Stop the app service
-        uses: appleboy/ssh-action@master
+      - name: Copy files via SCP
+        uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets[format('{0}_SERVER_IP', matrix.server)] }}
-          username: ${{ secrets[format('{0}_USER', matrix.server)] }}
-          password: ${{ secrets[format('{0}_PASSWORD', matrix.server)] }}
-          script: |
-            sudo systemctl stop observer.service
-
-      - name: Deploy
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets[format('{0}_SERVER_IP', matrix.server)] }}
-          username: ${{ secrets[format('{0}_USER', matrix.server)] }}
-          password: ${{ secrets[format('{0}_PASSWORD', matrix.server)] }}
+          host: ${{ secrets.PROD_IP }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.DEPLOY_KEY }}
           source: "src,requirements.txt"
-          target: /home/deploy/observer
-
-      - name: Activate venv, install requirements, and run service
-        uses: appleboy/ssh-action@master
+          target: "/home/deploy/observer"
+      - name: Execute remote commands via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets[format('{0}_SERVER_IP', matrix.server)] }}
-          username: ${{ secrets[format('{0}_USER', matrix.server)] }}
-          password: ${{ secrets[format('{0}_PASSWORD', matrix.server)] }}
+          host: ${{ secrets.PROD_IP }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.DEPLOY_KEY }}
           script: |
             cd /home/deploy/observer
-            . venv/bin/activate
-            pip install --no-cache-dir -r requirements.txt --default-timeout=30
-            sudo systemctl start observer.service
-
-      - name: Check and restart services if needed
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets[format('{0}_SERVER_IP', matrix.server)] }}
-          username: ${{ secrets[format('{0}_USER', matrix.server)] }}
-          password: ${{ secrets[format('{0}_PASSWORD', matrix.server)] }}
-          script: |
-            # Check and restart observer.service if not active
-            if ! sudo systemctl is-active observer.service; then
-              echo "Observer service is not active. Restarting..."
-              sudo systemctl restart observer.service
-            fi
-            
-            # Check and restart Nginx if not active
-            if ! sudo systemctl is-active nginx; then
-              echo "Nginx is not active. Restarting..."
-              sudo systemctl restart nginx
-            fi
+            # Убедимся, что у нас есть права на выполнение операций
+            chown -R deploy:deploy .
+            # Активируем виртуальное окружение и устанавливаем зависимости
+            su - deploy -c "cd /home/deploy/observer && source venv/bin/activate && pip install --no-cache-dir -r requirements.txt --default-timeout=60" || exit 1
+            # Перезапускаем сервис
+            systemctl restart observer.service || exit 1
+            sleep 2
+            systemctl is-active --quiet observer.service || (echo "Service failed to start" && exit 1)

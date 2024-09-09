@@ -1,0 +1,67 @@
+name: Deploy on servers
+
+on:
+  push:
+    branches:
+      - old_main
+
+jobs:
+  deploy_on_servers:
+    runs-on: ubuntu-22.04
+
+    strategy:
+      matrix:
+        server: [ 'PROD1', 'PROD2' ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Stop the app service
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets[format('{0}_SERVER_IP', matrix.server)] }}
+          username: ${{ secrets[format('{0}_USER', matrix.server)] }}
+          password: ${{ secrets[format('{0}_PASSWORD', matrix.server)] }}
+          script: |
+            sudo systemctl stop observer.service
+
+      - name: Deploy
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets[format('{0}_SERVER_IP', matrix.server)] }}
+          username: ${{ secrets[format('{0}_USER', matrix.server)] }}
+          password: ${{ secrets[format('{0}_PASSWORD', matrix.server)] }}
+          source: "src,requirements.txt"
+          target: /home/deploy/observer
+
+      - name: Activate venv, install requirements, and run service
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets[format('{0}_SERVER_IP', matrix.server)] }}
+          username: ${{ secrets[format('{0}_USER', matrix.server)] }}
+          password: ${{ secrets[format('{0}_PASSWORD', matrix.server)] }}
+          script: |
+            cd /home/deploy/observer
+            . venv/bin/activate
+            pip install --no-cache-dir -r requirements.txt --default-timeout=30
+            sudo systemctl start observer.service
+
+      - name: Check and restart services if needed
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets[format('{0}_SERVER_IP', matrix.server)] }}
+          username: ${{ secrets[format('{0}_USER', matrix.server)] }}
+          password: ${{ secrets[format('{0}_PASSWORD', matrix.server)] }}
+          script: |
+            # Check and restart observer.service if not active
+            if ! sudo systemctl is-active observer.service; then
+              echo "Observer service is not active. Restarting..."
+              sudo systemctl restart observer.service
+            fi
+            
+            # Check and restart Nginx if not active
+            if ! sudo systemctl is-active nginx; then
+              echo "Nginx is not active. Restarting..."
+              sudo systemctl restart nginx
+            fi
