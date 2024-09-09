@@ -43,3 +43,5 @@ node_modules/
 *.sqlite3
 load_test/
 /openai.http
+certificates/
+fabfile.py
